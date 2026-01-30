@@ -30,7 +30,7 @@ export default function VideoGrid() {
     const rowVideos = videos().slice(startIndex, startIndex + cols);
     const width = itemSize();
     
-    let maxHeight = width;
+    let maxHeight = 0;
     for (const video of rowVideos) {
       const aspect = video.aspect_ratio ?? 16 / 9;
       const height = width / aspect;
