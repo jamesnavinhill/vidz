@@ -85,6 +85,20 @@ The task list still showed **2.3.1** and **2.4.1** (ffprobe/ffmpeg bundling) unc
 - **Disable devtools**: ensure devtools are not available in release builds.
 - **Installer metadata**: add publisher, description, and upgrade code for Windows installer polish.
 
+## Latest Work Progress
+
+Summary:
+
+Implemented scan cancellation support with cancel events, UI controls, and backend cancel state handling.
+Added non-fatal warning surfacing (toast + toolbar status) and warning emissions for metadata/thumbnail failures.
+Completed tooling and test scaffolding: Rust fmt/clippy config, ESLint/Prettier/Vitest setup, Rust/TS unit tests, installer metadata, and updated docs/TASKS/audit report.
+Tests:
+
+pnpm --dir app lint
+pnpm --dir app test
+cargo check --manifest-path app/src-tauri/Cargo.toml
+cargo test --manifest-path app/src-tauri/Cargo.toml
+
 ## Suggested Next Steps
 
 1. Run the 10k library manual test and log scroll/CPU/IO metrics.
