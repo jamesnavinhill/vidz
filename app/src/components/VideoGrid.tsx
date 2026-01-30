@@ -15,6 +15,10 @@ export default function VideoGrid() {
     return Math.max(1, Math.floor((containerWidth() + gap) / (size + gap)));
   });
 
+  createEffect(() => {
+    setStore('gridColumns', columnCount());
+  });
+
   const itemSize = createMemo(() => {
     const cols = columnCount();
     return (containerWidth() - gap * (cols - 1)) / cols;

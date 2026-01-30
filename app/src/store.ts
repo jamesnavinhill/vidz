@@ -11,6 +11,7 @@ export interface AppStore {
   filterFavorites: boolean;
   focusedId: string | null;
   density: number;
+  gridColumns: number;
   scanning: boolean;
   scanProgress: { total: number; processed: number } | null;
   activePlayingIds: Set<string>;
@@ -29,6 +30,7 @@ const [store, setStore] = createStore<AppStore>({
   filterFavorites: false,
   focusedId: null,
   density: 1,
+  gridColumns: 1,
   scanning: false,
   scanProgress: null,
   activePlayingIds: new Set(),

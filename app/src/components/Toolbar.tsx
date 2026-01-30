@@ -183,7 +183,9 @@ export default function Toolbar() {
       </label>
 
       <div style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
-        <label style={{ color: '#888', 'font-size': '13px' }}>Size:</label>
+        <label style={{ color: '#888', 'font-size': '13px' }}>
+          Columns: {store.gridColumns}
+        </label>
         <input
           type="range"
           min="0.5"
