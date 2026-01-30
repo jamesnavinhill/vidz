@@ -81,7 +81,7 @@ function App() {
     });
 
     await invoke('start_file_watcher');
-    
+
     if (videos.length > 0) {
       invoke('process_pending_jobs');
     }
@@ -113,7 +113,7 @@ function App() {
       }}
     >
       <Toolbar />
-      
+
       <Show
         when={store.videos.length > 0}
         fallback={
@@ -128,9 +128,7 @@ function App() {
             }}
           >
             <Show when={store.scanning}>
-              <div style={{ 'font-size': '18px', 'margin-bottom': '12px' }}>
-                Scanning...
-              </div>
+              <div style={{ 'font-size': '18px', 'margin-bottom': '12px' }}>Scanning...</div>
               <Show when={store.scanProgress}>
                 <div style={{ 'font-size': '14px' }}>
                   {store.scanProgress!.processed} / {store.scanProgress!.total} files
@@ -138,19 +136,15 @@ function App() {
               </Show>
             </Show>
             <Show when={!store.scanning}>
-              <div style={{ 'font-size': '18px', 'margin-bottom': '8px' }}>
-                No videos yet
-              </div>
-              <div style={{ 'font-size': '14px' }}>
-                Click "Add Folder" to get started
-              </div>
+              <div style={{ 'font-size': '18px', 'margin-bottom': '8px' }}>No videos yet</div>
+              <div style={{ 'font-size': '14px' }}>Click "Add Folder" to get started</div>
             </Show>
           </div>
         }
       >
         <VideoGrid />
       </Show>
-      
+
       <FocusedPlayer />
       <WarningToast />
     </div>

@@ -7,14 +7,14 @@ import SettingsPanel from './SettingsPanel';
 
 export default function Toolbar() {
   const folders = createMemo(() => getUniqueFolders());
-  
+
   const addFolder = async () => {
     const selected = await open({
       directory: true,
       multiple: false,
       title: 'Select video folder',
     });
-    
+
     if (selected && typeof selected === 'string') {
       setStore('scanning', true);
       await invoke('add_watched_folder', { path: selected });
@@ -24,7 +24,7 @@ export default function Toolbar() {
   const cancelScan = async () => {
     await invoke('cancel_scan');
   };
-  
+
   const sortOptions: { value: SortMode; label: string }[] = [
     { value: 'folder', label: 'Folder' },
     { value: 'size', label: 'File Size' },
@@ -33,7 +33,7 @@ export default function Toolbar() {
     { value: 'duration', label: 'Duration' },
     { value: 'favorites', label: 'Favorites' },
   ];
-  
+
   return (
     <div
       class="toolbar"
@@ -77,7 +77,7 @@ export default function Toolbar() {
           Cancel
         </button>
       </Show>
-      
+
       <div style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
         <label style={{ color: '#888', 'font-size': '13px' }}>Sort:</label>
         <select
@@ -91,12 +91,10 @@ export default function Toolbar() {
             color: '#fff',
           }}
         >
-          <For each={sortOptions}>
-            {(opt) => <option value={opt.value}>{opt.label}</option>}
-          </For>
+          <For each={sortOptions}>{(opt) => <option value={opt.value}>{opt.label}</option>}</For>
         </select>
         <button
-          onClick={() => setStore('sortDirection', (d) => d === 'asc' ? 'desc' : 'asc')}
+          onClick={() => setStore('sortDirection', (d) => (d === 'asc' ? 'desc' : 'asc'))}
           style={{
             padding: '4px 8px',
             background: '#2a2a2a',
@@ -109,7 +107,7 @@ export default function Toolbar() {
           {store.sortDirection === 'asc' ? '↑' : '↓'}
         </button>
       </div>
-      
+
       <Show when={folders().length > 0}>
         <div style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
           <label style={{ color: '#888', 'font-size': '13px' }}>Folder:</label>
@@ -135,7 +133,7 @@ export default function Toolbar() {
           </select>
         </div>
       </Show>
-      
+
       <label
         style={{
           display: 'flex',
@@ -153,7 +151,7 @@ export default function Toolbar() {
         />
         Favorites only
       </label>
-      
+
       <div style={{ flex: 1 }} />
 
       <Show when={store.scanCancelled}>
@@ -165,7 +163,7 @@ export default function Toolbar() {
           {store.lastWarning}
         </div>
       </Show>
-      
+
       <label
         style={{
           display: 'flex',
@@ -183,7 +181,7 @@ export default function Toolbar() {
         />
         Autoplay
       </label>
-      
+
       <div style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
         <label style={{ color: '#888', 'font-size': '13px' }}>Size:</label>
         <input
@@ -196,11 +194,9 @@ export default function Toolbar() {
           style={{ width: '80px' }}
         />
       </div>
-      
-      <div style={{ color: '#666', 'font-size': '12px' }}>
-        {store.videos.length} videos
-      </div>
-      
+
+      <div style={{ color: '#666', 'font-size': '12px' }}>{store.videos.length} videos</div>
+
       <SettingsPanel />
     </div>
   );

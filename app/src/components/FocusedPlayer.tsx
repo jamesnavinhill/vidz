@@ -4,24 +4,22 @@ import { invoke } from '@tauri-apps/api/core';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 export default function FocusedPlayer() {
-  const video = createMemo(() => 
-    store.videos.find((v) => v.id === store.focusedId)
-  );
-  
+  const video = createMemo(() => store.videos.find((v) => v.id === store.focusedId));
+
   const close = () => setStore('focusedId', null);
-  
+
   const toggleFavorite = async () => {
     const v = video();
     if (!v) return;
     await invoke('set_favorite', { id: v.id, favorite: !v.favorite });
   };
-  
+
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       close();
     }
   };
-  
+
   return (
     <Show when={video()}>
       <div
@@ -76,7 +74,7 @@ export default function FocusedPlayer() {
             ✕
           </button>
         </div>
-        
+
         <video
           src={convertFileSrc(video()!.path)}
           controls

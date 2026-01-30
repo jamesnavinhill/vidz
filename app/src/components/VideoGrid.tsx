@@ -6,30 +6,30 @@ import VideoTile from './VideoTile';
 export default function VideoGrid() {
   let containerRef: HTMLDivElement | undefined;
   const [containerWidth, setContainerWidth] = createSignal(800);
-  
+
   const baseSize = 200;
   const gap = 4;
-  
+
   const columnCount = createMemo(() => {
     const size = baseSize * store.density;
     return Math.max(1, Math.floor((containerWidth() + gap) / (size + gap)));
   });
-  
+
   const itemSize = createMemo(() => {
     const cols = columnCount();
     return (containerWidth() - gap * (cols - 1)) / cols;
   });
-  
+
   const videos = createMemo(() => getSortedFilteredVideos());
-  
+
   const rowCount = createMemo(() => Math.ceil(videos().length / columnCount()));
-  
+
   const getRowHeight = (rowIndex: number) => {
     const cols = columnCount();
     const startIndex = rowIndex * cols;
     const rowVideos = videos().slice(startIndex, startIndex + cols);
     const width = itemSize();
-    
+
     let maxHeight = 0;
     for (const video of rowVideos) {
       const aspect = video.aspect_ratio ?? 16 / 9;
@@ -38,32 +38,32 @@ export default function VideoGrid() {
     }
     return maxHeight + gap;
   };
-  
+
   const virtualizer = createMemo(() =>
     createVirtualizer({
       count: rowCount(),
       getScrollElement: () => containerRef ?? null,
       estimateSize: (index) => getRowHeight(index),
       overscan: 3,
-    })
+    }),
   );
-  
+
   createEffect(() => {
     if (!containerRef) return;
-    
+
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width);
       }
     });
-    
+
     observer.observe(containerRef);
     onCleanup(() => observer.disconnect());
   });
-  
+
   const virtualRows = createMemo(() => virtualizer().getVirtualItems());
   const totalSize = createMemo(() => virtualizer().getTotalSize());
-  
+
   return (
     <div
       ref={containerRef}
@@ -86,7 +86,7 @@ export default function VideoGrid() {
             const cols = columnCount();
             const size = itemSize();
             const startIndex = virtualRow.index * cols;
-            
+
             return (
               <div
                 style={{

@@ -14,36 +14,36 @@ interface Props {
 export default function VideoTile(props: Props) {
   let videoRef: HTMLVideoElement | undefined;
   let containerRef: HTMLDivElement | undefined;
-  
+
   const [isHovering, setIsHovering] = createSignal(false);
   const [isVisible, setIsVisible] = createSignal(false);
   const [isPlaying, setIsPlaying] = createSignal(false);
-  
+
   onMount(() => {
     if (!containerRef) return;
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         setIsVisible(entries[0]?.isIntersecting ?? false);
       },
-      { threshold: 0.3 }
+      { threshold: 0.3 },
     );
-    
+
     observer.observe(containerRef);
     onCleanup(() => observer.disconnect());
   });
-  
+
   const shouldPlay = () => {
     if (!props.isActive) return false;
     if (!isVisible()) return false;
     if (props.autoplay) return true;
     return isHovering();
   };
-  
+
   createEffect(() => {
     const wantsToPlay = shouldPlay();
     const allowed = wantsToPlay && canVideoPlay(props.video.id);
-    
+
     if (allowed && !isPlaying() && videoRef) {
       registerPlaying(props.video.id);
       setIsPlaying(true);
@@ -55,18 +55,18 @@ export default function VideoTile(props: Props) {
       videoRef.currentTime = 0;
     }
   });
-  
+
   onCleanup(() => {
     if (isPlaying()) {
       unregisterPlaying(props.video.id);
     }
   });
-  
+
   const videoSrc = () => convertFileSrc(props.video.path);
-  
+
   const aspectRatio = () => props.video.aspect_ratio ?? 16 / 9;
   const height = () => props.width / aspectRatio();
-  
+
   return (
     <div
       ref={containerRef}
@@ -100,7 +100,7 @@ export default function VideoTile(props: Props) {
           left: 0,
         }}
       />
-      
+
       {props.video.favorite && (
         <div
           style={{

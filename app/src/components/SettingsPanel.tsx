@@ -5,21 +5,21 @@ import { store, setStore, setAutoplay } from '../store';
 export default function SettingsPanel() {
   const [isOpen, setIsOpen] = createSignal(false);
   const [watchedFolders, setWatchedFolders] = createSignal<string[]>([]);
-  
+
   onMount(async () => {
     const folders = await invoke<string[]>('get_watched_folders');
     setWatchedFolders(folders);
   });
-  
+
   const removeFolder = async (path: string) => {
     await invoke('remove_watched_folder', { path });
     setWatchedFolders((folders) => folders.filter((f) => f !== path));
   };
-  
+
   const getFolderName = (path: string) => {
     return path.split(/[/\\]/).pop() ?? path;
   };
-  
+
   return (
     <>
       <button
@@ -35,7 +35,7 @@ export default function SettingsPanel() {
       >
         ⚙
       </button>
-      
+
       <Show when={isOpen()}>
         <div
           style={{
@@ -62,7 +62,13 @@ export default function SettingsPanel() {
               overflow: 'auto',
             }}
           >
-            <div style={{ display: 'flex', 'justify-content': 'space-between', 'margin-bottom': '20px' }}>
+            <div
+              style={{
+                display: 'flex',
+                'justify-content': 'space-between',
+                'margin-bottom': '20px',
+              }}
+            >
               <h2 style={{ margin: 0, 'font-size': '18px' }}>Settings</h2>
               <button
                 onClick={() => setIsOpen(false)}
@@ -77,10 +83,14 @@ export default function SettingsPanel() {
                 ✕
               </button>
             </div>
-            
+
             <div style={{ 'margin-bottom': '20px' }}>
-              <h3 style={{ 'font-size': '14px', color: '#888', 'margin-bottom': '12px' }}>Playback</h3>
-              <label style={{ display: 'flex', 'align-items': 'center', gap: '8px', cursor: 'pointer' }}>
+              <h3 style={{ 'font-size': '14px', color: '#888', 'margin-bottom': '12px' }}>
+                Playback
+              </h3>
+              <label
+                style={{ display: 'flex', 'align-items': 'center', gap: '8px', cursor: 'pointer' }}
+              >
                 <input
                   type="checkbox"
                   checked={store.autoplay}
@@ -89,9 +99,11 @@ export default function SettingsPanel() {
                 Autoplay videos on hover
               </label>
             </div>
-            
+
             <div style={{ 'margin-bottom': '20px' }}>
-              <h3 style={{ 'font-size': '14px', color: '#888', 'margin-bottom': '12px' }}>Performance</h3>
+              <h3 style={{ 'font-size': '14px', color: '#888', 'margin-bottom': '12px' }}>
+                Performance
+              </h3>
               <label style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
                 Max concurrent videos:
                 <input
@@ -111,9 +123,11 @@ export default function SettingsPanel() {
                 />
               </label>
             </div>
-            
+
             <div>
-              <h3 style={{ 'font-size': '14px', color: '#888', 'margin-bottom': '12px' }}>Watched Folders</h3>
+              <h3 style={{ 'font-size': '14px', color: '#888', 'margin-bottom': '12px' }}>
+                Watched Folders
+              </h3>
               <Show
                 when={watchedFolders().length > 0}
                 fallback={<div style={{ color: '#666' }}>No folders added yet</div>}

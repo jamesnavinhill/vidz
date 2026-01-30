@@ -18,13 +18,7 @@ export interface ScanProgress {
   current_file: string | null;
 }
 
-export type SortMode = 
-  | 'size' 
-  | 'resolution' 
-  | 'aspect' 
-  | 'duration' 
-  | 'folder' 
-  | 'favorites';
+export type SortMode = 'size' | 'resolution' | 'aspect' | 'duration' | 'folder' | 'favorites';
 
 export type SortDirection = 'asc' | 'desc';
 

@@ -79,7 +79,7 @@ export function getSortedFilteredVideos(): VideoItem[] {
         cmp = a.size_bytes - b.size_bytes;
         break;
       case 'resolution':
-        cmp = ((a.width ?? 0) * (a.height ?? 0)) - ((b.width ?? 0) * (b.height ?? 0));
+        cmp = (a.width ?? 0) * (a.height ?? 0) - (b.width ?? 0) * (b.height ?? 0);
         break;
       case 'aspect':
         cmp = (a.aspect_ratio ?? 0) - (b.aspect_ratio ?? 0);
