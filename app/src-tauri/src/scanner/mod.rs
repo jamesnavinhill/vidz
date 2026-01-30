@@ -1,13 +1,13 @@
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
-use sha2::{Sha256, Digest};
 use walkdir::WalkDir;
 
 use crate::db::Database;
 use crate::models::VideoItem;
 
 const VIDEO_EXTENSIONS: &[&str] = &[
-    "mp4", "mkv", "webm", "avi", "mov", "wmv", "flv", "m4v", "mpg", "mpeg", "3gp"
+    "mp4", "mkv", "webm", "avi", "mov", "wmv", "flv", "m4v", "mpg", "mpeg", "3gp",
 ];
 
 #[cfg(windows)]
@@ -69,7 +69,7 @@ pub fn scan_directory(
     }
 
     let total = entries.len();
-    
+
     let mut cancelled = false;
     for (idx, path) in entries.iter().enumerate() {
         if should_cancel() {
@@ -77,7 +77,7 @@ pub fn scan_directory(
             break;
         }
         on_progress(idx, total, &path.to_string_lossy());
-        
+
         if let Some(video) = create_video_item(path) {
             if let Err(e) = db.upsert_video(&video) {
                 eprintln!("Failed to upsert video {}: {}", path.display(), e);
@@ -98,7 +98,7 @@ fn create_video_item(path: &Path) -> Option<VideoItem> {
         .duration_since(UNIX_EPOCH)
         .ok()?
         .as_secs() as i64;
-    
+
     let folder = path
         .parent()
         .map(|p| p.to_string_lossy().to_string())
@@ -126,8 +126,10 @@ pub fn extract_metadata(video_path: &str, ffprobe_path: &Path) -> Option<(i64, i
     apply_no_window(&mut command);
     let output = command
         .args([
-            "-v", "quiet",
-            "-print_format", "json",
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
             "-show_format",
             "-show_streams",
             video_path,
@@ -140,15 +142,15 @@ pub fn extract_metadata(video_path: &str, ffprobe_path: &Path) -> Option<(i64, i
     }
 
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
-    
+
     let duration_ms = json["format"]["duration"]
         .as_str()
         .and_then(|s| s.parse::<f64>().ok())
         .map(|d| (d * 1000.0) as i64)?;
-    
+
     let streams = json["streams"].as_array()?;
     let video_stream = streams.iter().find(|s| s["codec_type"] == "video")?;
-    
+
     let width = video_stream["width"].as_i64()? as i32;
     let height = video_stream["height"].as_i64()? as i32;
 
@@ -171,10 +173,14 @@ pub fn generate_thumbnail(
     let output = command
         .args([
             "-y",
-            "-i", video_path,
-            "-vframes", "1",
-            "-q:v", "2",
-            "-vf", "scale=320:-1",
+            "-i",
+            video_path,
+            "-vframes",
+            "1",
+            "-q:v",
+            "2",
+            "-vf",
+            "scale=320:-1",
             &thumb_path.to_string_lossy(),
         ])
         .output()

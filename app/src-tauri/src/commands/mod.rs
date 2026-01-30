@@ -1,6 +1,6 @@
+use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
-use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::Database;
@@ -28,12 +28,15 @@ pub async fn set_favorite(
     id: String,
     favorite: bool,
 ) -> Result<(), String> {
-    state.db.set_favorite(&id, favorite).map_err(|e| e.to_string())?;
-    
+    state
+        .db
+        .set_favorite(&id, favorite)
+        .map_err(|e| e.to_string())?;
+
     if let Ok(Some(video)) = state.db.get_video_by_id(&id) {
         let _ = app.emit("library:updated", vec![video]);
     }
-    
+
     Ok(())
 }
 
@@ -63,15 +66,21 @@ pub async fn scan_directories(
 
             let app_clone = app_handle.clone();
             let cancel_guard = Arc::clone(&cancel_state);
-            let (videos, cancelled) = scanner::scan_directory(&db, &root, || {
-                *cancel_guard.lock()
-            }, |processed, total, current| {
-                let _ = app_clone.emit("library:scan_progress", ScanProgress {
-                    total,
-                    processed,
-                    current_file: Some(current.to_string()),
-                });
-            })?;
+            let (videos, cancelled) = scanner::scan_directory(
+                &db,
+                &root,
+                || *cancel_guard.lock(),
+                |processed, total, current| {
+                    let _ = app_clone.emit(
+                        "library:scan_progress",
+                        ScanProgress {
+                            total,
+                            processed,
+                            current_file: Some(current.to_string()),
+                        },
+                    );
+                },
+            )?;
 
             if cancelled {
                 let mut cancel = cancel_guard.lock();
@@ -111,25 +120,28 @@ pub async fn add_watched_folder(
     path: String,
 ) -> Result<Vec<VideoItem>, String> {
     let mut folders = state.db.get_watched_folders().map_err(|e| e.to_string())?;
-    
+
     if !folders.contains(&path) {
         folders.push(path.clone());
-        state.db.save_watched_folders(&folders).map_err(|e| e.to_string())?;
+        state
+            .db
+            .save_watched_folders(&folders)
+            .map_err(|e| e.to_string())?;
     }
-    
+
     {
         let mut watcher = state.watcher.lock();
         watcher.watch(PathBuf::from(&path)).ok();
     }
-    
+
     let videos = scan_directories(state.clone(), app.clone(), vec![path]).await?;
-    
+
     let job_queue = state.job_queue.clone();
     let app_clone = app.clone();
     tokio::spawn(async move {
         job_queue.process_all(app_clone).await;
     });
-    
+
     Ok(videos)
 }
 
@@ -146,13 +158,16 @@ pub async fn remove_watched_folder(
 ) -> Result<(), String> {
     let mut folders = state.db.get_watched_folders().map_err(|e| e.to_string())?;
     folders.retain(|f| f != &path);
-    state.db.save_watched_folders(&folders).map_err(|e| e.to_string())?;
+    state
+        .db
+        .save_watched_folders(&folders)
+        .map_err(|e| e.to_string())?;
 
     let videos = state
         .db
         .get_videos_by_folder_prefix(&path)
         .map_err(|e| e.to_string())?;
-    
+
     {
         let mut watcher = state.watcher.lock();
         watcher.unwatch(&PathBuf::from(&path)).ok();
@@ -173,7 +188,7 @@ pub async fn remove_watched_folder(
     if !removed_ids.is_empty() {
         let _ = app.emit("library:removed_bulk", removed_ids);
     }
-    
+
     Ok(())
 }
 
@@ -195,7 +210,7 @@ pub async fn start_file_watcher(
     app: AppHandle,
 ) -> Result<(), String> {
     let folders = state.db.get_watched_folders().map_err(|e| e.to_string())?;
-    
+
     {
         let mut watcher = state.watcher.lock();
         watcher.start(state.db.clone(), app.clone(), state.job_queue.clone())?;
@@ -204,7 +219,7 @@ pub async fn start_file_watcher(
             watcher.watch(PathBuf::from(folder)).ok();
         }
     }
-    
+
     Ok(())
 }
 
@@ -218,7 +233,10 @@ pub async fn save_app_settings(
     state: State<'_, Arc<AppState>>,
     settings: AppSettings,
 ) -> Result<(), String> {
-    state.db.save_app_settings(&settings).map_err(|e| e.to_string())
+    state
+        .db
+        .save_app_settings(&settings)
+        .map_err(|e| e.to_string())
 }
 
 pub fn get_ffprobe_path(app: &AppHandle) -> PathBuf {

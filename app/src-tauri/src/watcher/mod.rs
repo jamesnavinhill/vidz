@@ -1,8 +1,8 @@
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::Duration;
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 
@@ -98,7 +98,7 @@ impl FileWatcher {
         Ok(())
     }
 
-    pub fn unwatch(&mut self, path: &PathBuf) -> Result<(), String> {
+    pub fn unwatch(&mut self, path: &Path) -> Result<(), String> {
         if let Some(ref mut watcher) = self.watcher {
             watcher.unwatch(path).map_err(|e| e.to_string())?;
 
@@ -109,12 +109,7 @@ impl FileWatcher {
     }
 }
 
-async fn handle_file_change(
-    db: &Database,
-    app: &AppHandle,
-    job_queue: &JobQueue,
-    path: &PathBuf,
-) {
+async fn handle_file_change(db: &Database, app: &AppHandle, job_queue: &JobQueue, path: &Path) {
     if !path.exists() {
         return;
     }
@@ -174,7 +169,7 @@ async fn handle_file_change(
     });
 }
 
-async fn handle_file_remove(db: &Database, app: &AppHandle, path: &PathBuf) {
+async fn handle_file_remove(db: &Database, app: &AppHandle, path: &Path) {
     let id = scanner::compute_video_id(path);
 
     if let Ok(Some(video)) = db.get_video_by_id(&id) {

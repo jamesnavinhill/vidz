@@ -1,8 +1,8 @@
-use rusqlite::{Connection, Result, params};
+use directories::ProjectDirs;
+use parking_lot::Mutex;
+use rusqlite::{params, Connection, Result};
 use std::path::PathBuf;
 use std::sync::Arc;
-use parking_lot::Mutex;
-use directories::ProjectDirs;
 
 use crate::models::VideoItem;
 
@@ -16,7 +16,7 @@ impl Database {
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent).ok();
         }
-        
+
         let conn = Connection::open(&db_path)?;
         let db = Self {
             conn: Arc::new(Mutex::new(conn)),
@@ -69,13 +69,12 @@ impl Database {
 
     pub fn cleanup_orphaned_thumbnails(&self) -> Result<usize> {
         let conn = self.conn.lock();
-        let mut stmt = conn.prepare("SELECT thumb_path FROM videos WHERE thumb_path IS NOT NULL")?;
+        let mut stmt =
+            conn.prepare("SELECT thumb_path FROM videos WHERE thumb_path IS NOT NULL")?;
         let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
         let mut valid = std::collections::HashSet::new();
-        for row in rows {
-            if let Ok(path) = row {
-                valid.insert(path);
-            }
+        for path in rows.flatten() {
+            valid.insert(path);
         }
         drop(stmt);
 
@@ -88,10 +87,8 @@ impl Database {
                     continue;
                 }
                 let path_str = path.to_string_lossy().to_string();
-                if !valid.contains(&path_str) {
-                    if std::fs::remove_file(&path).is_ok() {
-                        removed += 1;
-                    }
+                if !valid.contains(&path_str) && std::fs::remove_file(&path).is_ok() {
+                    removed += 1;
                 }
             }
         }
@@ -125,7 +122,7 @@ impl Database {
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
-            );"
+            );",
         )?;
         Ok(())
     }
@@ -169,23 +166,25 @@ impl Database {
             "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
              FROM videos ORDER BY path"
         )?;
-        
-        let videos = stmt.query_map([], |row| {
-            Ok(VideoItem {
-                id: row.get(0)?,
-                path: row.get(1)?,
-                folder: row.get(2)?,
-                size_bytes: row.get(3)?,
-                mtime: row.get(4)?,
-                duration_ms: row.get(5)?,
-                width: row.get(6)?,
-                height: row.get(7)?,
-                aspect_ratio: row.get(8)?,
-                favorite: row.get::<_, i32>(9)? != 0,
-                thumb_path: row.get(10)?,
-            })
-        })?.collect::<Result<Vec<_>>>()?;
-        
+
+        let videos = stmt
+            .query_map([], |row| {
+                Ok(VideoItem {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    folder: row.get(2)?,
+                    size_bytes: row.get(3)?,
+                    mtime: row.get(4)?,
+                    duration_ms: row.get(5)?,
+                    width: row.get(6)?,
+                    height: row.get(7)?,
+                    aspect_ratio: row.get(8)?,
+                    favorite: row.get::<_, i32>(9)? != 0,
+                    thumb_path: row.get(10)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
         Ok(videos)
     }
 
@@ -198,9 +197,19 @@ impl Database {
         Ok(())
     }
 
-    pub fn update_metadata(&self, id: &str, duration_ms: i64, width: i32, height: i32) -> Result<()> {
+    pub fn update_metadata(
+        &self,
+        id: &str,
+        duration_ms: i64,
+        width: i32,
+        height: i32,
+    ) -> Result<()> {
         let conn = self.conn.lock();
-        let aspect_ratio = if height > 0 { width as f64 / height as f64 } else { 1.0 };
+        let aspect_ratio = if height > 0 {
+            width as f64 / height as f64
+        } else {
+            1.0
+        };
         conn.execute(
             "UPDATE videos SET duration_ms = ?1, width = ?2, height = ?3, aspect_ratio = ?4 WHERE id = ?5",
             params![duration_ms, width, height, aspect_ratio, id],
@@ -223,7 +232,7 @@ impl Database {
             "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
              FROM videos WHERE id = ?1"
         )?;
-        
+
         let mut rows = stmt.query(params![id])?;
         if let Some(row) = rows.next()? {
             Ok(Some(VideoItem {
@@ -250,23 +259,25 @@ impl Database {
             "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
              FROM videos WHERE duration_ms IS NULL OR width IS NULL"
         )?;
-        
-        let videos = stmt.query_map([], |row| {
-            Ok(VideoItem {
-                id: row.get(0)?,
-                path: row.get(1)?,
-                folder: row.get(2)?,
-                size_bytes: row.get(3)?,
-                mtime: row.get(4)?,
-                duration_ms: row.get(5)?,
-                width: row.get(6)?,
-                height: row.get(7)?,
-                aspect_ratio: row.get(8)?,
-                favorite: row.get::<_, i32>(9)? != 0,
-                thumb_path: row.get(10)?,
-            })
-        })?.collect::<Result<Vec<_>>>()?;
-        
+
+        let videos = stmt
+            .query_map([], |row| {
+                Ok(VideoItem {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    folder: row.get(2)?,
+                    size_bytes: row.get(3)?,
+                    mtime: row.get(4)?,
+                    duration_ms: row.get(5)?,
+                    width: row.get(6)?,
+                    height: row.get(7)?,
+                    aspect_ratio: row.get(8)?,
+                    favorite: row.get::<_, i32>(9)? != 0,
+                    thumb_path: row.get(10)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
         Ok(videos)
     }
 
@@ -276,23 +287,25 @@ impl Database {
             "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
              FROM videos WHERE thumb_path IS NULL"
         )?;
-        
-        let videos = stmt.query_map([], |row| {
-            Ok(VideoItem {
-                id: row.get(0)?,
-                path: row.get(1)?,
-                folder: row.get(2)?,
-                size_bytes: row.get(3)?,
-                mtime: row.get(4)?,
-                duration_ms: row.get(5)?,
-                width: row.get(6)?,
-                height: row.get(7)?,
-                aspect_ratio: row.get(8)?,
-                favorite: row.get::<_, i32>(9)? != 0,
-                thumb_path: row.get(10)?,
-            })
-        })?.collect::<Result<Vec<_>>>()?;
-        
+
+        let videos = stmt
+            .query_map([], |row| {
+                Ok(VideoItem {
+                    id: row.get(0)?,
+                    path: row.get(1)?,
+                    folder: row.get(2)?,
+                    size_bytes: row.get(3)?,
+                    mtime: row.get(4)?,
+                    duration_ms: row.get(5)?,
+                    width: row.get(6)?,
+                    height: row.get(7)?,
+                    aspect_ratio: row.get(8)?,
+                    favorite: row.get::<_, i32>(9)? != 0,
+                    thumb_path: row.get(10)?,
+                })
+            })?
+            .collect::<Result<Vec<_>>>()?;
+
         Ok(videos)
     }
 
@@ -311,7 +324,7 @@ impl Database {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'watched_folders'")?;
         let mut rows = stmt.query([])?;
-        
+
         if let Some(row) = rows.next()? {
             let json: String = row.get(0)?;
             Ok(serde_json::from_str(&json).unwrap_or_default())
@@ -369,7 +382,7 @@ impl Database {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'app_settings'")?;
         let mut rows = stmt.query([])?;
-        
+
         if let Some(row) = rows.next()? {
             let json: String = row.get(0)?;
             Ok(serde_json::from_str(&json).unwrap_or_default())

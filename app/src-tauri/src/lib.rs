@@ -5,12 +5,12 @@ mod models;
 mod scanner;
 mod watcher;
 
-use std::sync::Arc;
-use parking_lot::Mutex;
-use tauri::Manager;
 use commands::{get_ffmpeg_path, get_ffprobe_path, AppState};
 use db::Database;
 use jobs::JobQueue;
+use parking_lot::Mutex;
+use std::sync::Arc;
+use tauri::Manager;
 use watcher::FileWatcher;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -26,9 +26,9 @@ pub fn run() {
                     println!("Cleaned up {} orphaned thumbnails", removed);
                 }
             }
-            
-            let ffprobe_path = get_ffprobe_path(&app.handle());
-            let ffmpeg_path = get_ffmpeg_path(&app.handle());
+
+            let ffprobe_path = get_ffprobe_path(app.handle());
+            let ffmpeg_path = get_ffmpeg_path(app.handle());
             let job_queue = JobQueue::new(db.clone(), ffprobe_path, ffmpeg_path);
 
             if let Ok(resource_dir) = app.path().resource_dir() {
@@ -42,14 +42,14 @@ pub fn run() {
                     eprintln!("Bundled ffmpeg not found at {}", ffmpeg_bundled.display());
                 }
             }
-            
+
             let state = Arc::new(AppState {
                 db,
                 watcher: Mutex::new(FileWatcher::new()),
                 job_queue,
                 scan_cancel: Arc::new(Mutex::new(false)),
             });
-            
+
             app.manage(state);
             Ok(())
         })

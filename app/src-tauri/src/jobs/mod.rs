@@ -1,6 +1,6 @@
+use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
-use parking_lot::Mutex;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Semaphore;
 
@@ -80,10 +80,10 @@ impl JobQueue {
                     scanner::extract_metadata(&video_path, &ffprobe)
                 {
                     if let Err(e) = db.update_metadata(&video_id, duration_ms, width, height) {
-                        let _ = app_clone.emit("library:warning", format!(
-                            "Metadata update failed for {}: {}",
-                            video_path, e
-                        ));
+                        let _ = app_clone.emit(
+                            "library:warning",
+                            format!("Metadata update failed for {}: {}", video_path, e),
+                        );
                     } else if let Ok(Some(updated)) = db.get_video_by_id(&video_id) {
                         let _ = app_clone.emit("library:updated", vec![updated]);
                     }
@@ -138,10 +138,10 @@ impl JobQueue {
                 } else {
                     let thumb_str = thumb_path.to_string_lossy().to_string();
                     if let Err(e) = db.update_thumb(&video_id, &thumb_str) {
-                        let _ = app_clone.emit("library:warning", format!(
-                            "Failed to update thumbnail for {}: {}",
-                            video_path, e
-                        ));
+                        let _ = app_clone.emit(
+                            "library:warning",
+                            format!("Failed to update thumbnail for {}: {}", video_path, e),
+                        );
                     } else if let Ok(Some(updated)) = db.get_video_by_id(&video_id) {
                         let _ = app_clone.emit("library:updated", vec![updated]);
                     }
