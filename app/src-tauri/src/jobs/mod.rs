@@ -46,11 +46,19 @@ impl JobQueue {
         }
     }
 
+    pub fn clear_running(&self) {
+        let mut running = self.running.lock();
+        *running = false;
+    }
+
     async fn process_metadata(&self, app: &AppHandle) {
         let videos = match self.db.get_videos_needing_metadata() {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("Failed to get videos needing metadata: {}", e);
+                let _ = app.emit(
+                    "library:warning",
+                    format!("Failed to get videos needing metadata: {}", e),
+                );
                 return;
             }
         };
@@ -72,10 +80,18 @@ impl JobQueue {
                     scanner::extract_metadata(&video_path, &ffprobe)
                 {
                     if let Err(e) = db.update_metadata(&video_id, duration_ms, width, height) {
-                        eprintln!("Failed to update metadata for {}: {}", video_path, e);
+                        let _ = app_clone.emit("library:warning", format!(
+                            "Metadata update failed for {}: {}",
+                            video_path, e
+                        ));
                     } else if let Ok(Some(updated)) = db.get_video_by_id(&video_id) {
                         let _ = app_clone.emit("library:updated", vec![updated]);
                     }
+                } else {
+                    let _ = app_clone.emit(
+                        "library:warning",
+                        format!("Metadata probe failed for {}", video_path),
+                    );
                 }
             });
 
@@ -91,7 +107,10 @@ impl JobQueue {
         let videos = match self.db.get_videos_needing_thumbs() {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("Failed to get videos needing thumbs: {}", e);
+                let _ = app.emit(
+                    "library:warning",
+                    format!("Failed to get videos needing thumbs: {}", e),
+                );
                 return;
             }
         };
@@ -112,11 +131,17 @@ impl JobQueue {
                 let _permit = permit;
 
                 if let Err(e) = scanner::generate_thumbnail(&video_path, &thumb_path, &ffmpeg) {
-                    eprintln!("Failed to generate thumbnail for {}: {}", video_path, e);
+                    let _ = app_clone.emit(
+                        "library:warning",
+                        format!("Thumbnail generation failed for {}: {}", video_path, e),
+                    );
                 } else {
                     let thumb_str = thumb_path.to_string_lossy().to_string();
                     if let Err(e) = db.update_thumb(&video_id, &thumb_str) {
-                        eprintln!("Failed to update thumb path for {}: {}", video_path, e);
+                        let _ = app_clone.emit("library:warning", format!(
+                            "Failed to update thumbnail for {}: {}",
+                            video_path, e
+                        ));
                     } else if let Ok(Some(updated)) = db.get_video_by_id(&video_id) {
                         let _ = app_clone.emit("library:updated", vec![updated]);
                     }

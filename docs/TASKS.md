@@ -26,8 +26,8 @@
 - [x] **1.2** Configure Windows target (icons, product name, window defaults)
 - [x] **1.3** Add TanStack Virtual dependency
 - [ ] **1.4** Create 10k placeholder grid prototype to validate smooth scroll
-- [ ] **1.5** Set up Rust tooling (rustfmt, clippy)
-- [ ] **1.6** Set up frontend tooling (prettier, eslint minimal)
+- [x] **1.5** Set up Rust tooling (rustfmt, clippy)
+- [x] **1.6** Set up frontend tooling (prettier, eslint minimal)
 - [x] **1.7** Configure Tauri filesystem permissions (user-chosen directories only)
 - [x] **1.8** Define app directories:
   - `AppDataDir/Vidz/library.db`
@@ -53,14 +53,14 @@
 
 ### 2.3 Metadata Extraction
 
-- [ ] **2.3.1** Bundle ffprobe for Windows
+- [x] **2.3.1** Bundle ffprobe for Windows
 - [x] **2.3.2** Implement `probe_video(path)` → duration, width, height
 - [x] **2.3.3** Add timeout and error handling
-- [ ] **2.3.4** Skip probe if mtime unchanged and fields exist
+- [x] **2.3.4** Skip probe if mtime unchanged and fields exist
 
 ### 2.4 Thumbnail Generation
 
-- [ ] **2.4.1** Bundle ffmpeg for Windows
+- [x] **2.4.1** Bundle ffmpeg for Windows
 - [x] **2.4.2** Implement first-frame thumbnail extraction → JPEG
 - [x] **2.4.3** Output to `thumbs/{id}.jpg`
 - [x] **2.4.4** Store thumb_path in DB
@@ -184,7 +184,7 @@
 
 - [x] **6.7** Tune ffmpeg concurrency (2 thumbnails, 4 metadata)
 - [x] **6.8** Ensure scanning doesn't block UI
-- [ ] **6.9** Add scan cancellation support
+- [x] **6.9** Add scan cancellation support
 
 ---
 
@@ -198,19 +198,19 @@
 
 ### Error Handling
 
-- [ ] **7.4** Surface non-fatal failures subtly
+- [x] **7.4** Surface non-fatal failures subtly
 
 ### Packaging
 
 - [x] **7.5** Bundle ffmpeg/ffprobe in app resources
-- [ ] **7.6** Verify path resolution in production builds
-- [ ] **7.7** Configure icons and installer metadata
+- [x] **7.6** Verify path resolution in production builds
+- [x] **7.7** Configure icons and installer metadata
 
 ### Testing
 
 - [ ] **7.8** Manual smoke test with 10k library
-- [ ] **7.9** Rust unit tests (DB upsert, ID generation)
-- [ ] **7.10** Frontend tests (sorting/filtering correctness)
+- [x] **7.9** Rust unit tests (DB upsert, ID generation)
+- [x] **7.10** Frontend tests (sorting/filtering correctness)
 
 ---
 

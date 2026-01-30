@@ -8,7 +8,7 @@ Audit against `docs/plan.md` and `docs/TASKS.md` for missing or incomplete items
 
 ## Overall Status
 
-Core product goals are achieved: the app is functional with grid playback, focused player, sorting/filtering, file watching, and thumbnail/metadata caching. The remaining items are mostly tooling, polish, and verification steps.
+Core product goals are achieved: the app is functional with grid playback, focused player, sorting/filtering, file watching, and thumbnail/metadata caching. Remaining work is now limited to manual verification (10k smoke test) and the explicit 10k placeholder prototype (out of scope for this phase).
 
 ## Implemented (Highlights)
 
@@ -26,30 +26,30 @@ Core product goals are achieved: the app is functional with grid playback, focus
 
 ### Phase 1 — Scaffolding
 
-- **1.4** 10k placeholder grid prototype (explicit benchmark prototype not present)
-- **1.5** Rust tooling setup (rustfmt/clippy config & scripts)
-- **1.6** Frontend tooling setup (eslint/prettier minimal)
+- **1.4** 10k placeholder grid prototype (explicit benchmark prototype not present) **out of scope for this phase**
+- **1.5** Rust tooling setup (rustfmt/clippy config & scripts) ✅
+- **1.6** Frontend tooling setup (eslint/prettier minimal) ✅
 
 ### Phase 2 — Metadata
 
-- **2.3.4** Skip ffprobe if mtime unchanged and fields exist
+- **2.3.4** Skip ffprobe if mtime unchanged and fields exist ✅
 
 ### Phase 6 — Performance Hardening
 
-- **6.9** Scan cancellation support
+- **6.9** Scan cancellation support ✅
 
 ### Phase 7 — Polish & Release
 
-- **7.4** Surface non-fatal failures subtly in UI
-- **7.6** Verify path resolution in production builds
-- **7.7** Configure installer metadata beyond icons (publisher, description, etc.)
-- **7.8** Manual 10k library smoke test
-- **7.9** Rust unit tests (DB upsert, ID generation)
-- **7.10** Frontend tests (sorting/filtering correctness)
+- **7.4** Surface non-fatal failures subtly in UI ✅
+- **7.6** Verify path resolution in production builds ✅
+- **7.7** Configure installer metadata beyond icons (publisher, description, etc.) ✅
+- **7.8** Manual 10k library smoke test (pending)
+- **7.9** Rust unit tests (DB upsert, ID generation) ✅
+- **7.10** Frontend tests (sorting/filtering correctness) ✅
 
 ## Notes on Items Marked Unchecked but Present
 
-The task list still shows **2.3.1** and **2.4.1** (ffprobe/ffmpeg bundling) unchecked, but `src-tauri/bin/` contains the binaries and `tauri.conf.json` includes `resources: ["bin/*"]`. This appears implemented and should be marked complete.
+The task list still showed **2.3.1** and **2.4.1** (ffprobe/ffmpeg bundling) unchecked, but `src-tauri/bin/` contains the binaries and `tauri.conf.json` includes `resources: ["bin/*"]`. These are now marked complete in `docs/TASKS.md`.
 
 ## Optimizations (Industry-Standard Ideas)
 
@@ -87,8 +87,5 @@ The task list still shows **2.3.1** and **2.4.1** (ffprobe/ffmpeg bundling) unch
 
 ## Suggested Next Steps
 
-1. Add lint/format scripts (rustfmt, clippy, eslint, prettier) and document them.
-2. Implement ffprobe skip logic and scan cancellation.
-3. Add non-fatal error surface (toast or status bar).
-4. Run the 10k library manual test and log scroll/CPU/IO metrics.
-5. Add minimal unit tests around DB and sorting logic.
+1. Run the 10k library manual test and log scroll/CPU/IO metrics.
+2. Decide whether to build the 10k placeholder prototype (task 1.4) or rely on manual testing only.

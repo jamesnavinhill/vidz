@@ -30,6 +30,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Vidz",
+    "shortDescription": "Local video viewer for large clip libraries",
+    "longDescription": "Vidz is a Windows-first local video viewer for browsing, sorting, and playing large clip libraries with fast scanning and thumbnail caching.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

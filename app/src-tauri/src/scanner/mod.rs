@@ -18,6 +18,19 @@ pub fn compute_video_id(path: &Path) -> String {
     hex::encode(&result[..16])
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compute_video_id_is_stable() {
+        let path = Path::new("C:/videos/example.mp4");
+        let first = compute_video_id(path);
+        let second = compute_video_id(path);
+        assert_eq!(first, second);
+    }
+}
+
 pub fn is_video_file(path: &Path) -> bool {
     path.extension()
         .and_then(|ext| ext.to_str())
@@ -28,8 +41,9 @@ pub fn is_video_file(path: &Path) -> bool {
 pub fn scan_directory(
     db: &Database,
     root: &Path,
+    should_cancel: impl Fn() -> bool,
     on_progress: impl Fn(usize, usize, &str),
-) -> Result<Vec<VideoItem>, String> {
+) -> Result<(Vec<VideoItem>, bool), String> {
     let mut videos = Vec::new();
     let mut entries: Vec<PathBuf> = Vec::new();
 
@@ -46,7 +60,12 @@ pub fn scan_directory(
 
     let total = entries.len();
     
+    let mut cancelled = false;
     for (idx, path) in entries.iter().enumerate() {
+        if should_cancel() {
+            cancelled = true;
+            break;
+        }
         on_progress(idx, total, &path.to_string_lossy());
         
         if let Some(video) = create_video_item(path) {
@@ -58,7 +77,7 @@ pub fn scan_directory(
         }
     }
 
-    Ok(videos)
+    Ok((videos, cancelled))
 }
 
 fn create_video_item(path: &Path) -> Option<VideoItem> {

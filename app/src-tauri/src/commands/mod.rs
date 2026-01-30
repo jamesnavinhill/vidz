@@ -13,6 +13,7 @@ pub struct AppState {
     pub db: Database,
     pub watcher: Mutex<FileWatcher>,
     pub job_queue: JobQueue,
+    pub scan_cancel: Arc<Mutex<bool>>,
 }
 
 #[tauri::command]
@@ -45,6 +46,11 @@ pub async fn scan_directories(
     let db = state.db.clone();
     let app_handle = app.clone();
     let paths_clone = paths.clone();
+    let cancel_state = Arc::clone(&state.scan_cancel);
+    {
+        let mut cancel = cancel_state.lock();
+        *cancel = false;
+    }
 
     let result = tokio::task::spawn_blocking(move || {
         let mut all_videos = Vec::new();
@@ -56,13 +62,21 @@ pub async fn scan_directories(
             }
 
             let app_clone = app_handle.clone();
-            let videos = scanner::scan_directory(&db, &root, |processed, total, current| {
+            let cancel_guard = Arc::clone(&cancel_state);
+            let (videos, cancelled) = scanner::scan_directory(&db, &root, || {
+                *cancel_guard.lock()
+            }, |processed, total, current| {
                 let _ = app_clone.emit("library:scan_progress", ScanProgress {
                     total,
                     processed,
                     current_file: Some(current.to_string()),
                 });
             })?;
+
+            if cancelled {
+                let mut cancel = cancel_guard.lock();
+                *cancel = true;
+            }
 
             all_videos.extend(videos);
         }
@@ -72,10 +86,22 @@ pub async fn scan_directories(
     .await
     .map_err(|e| e.to_string())??;
 
+    let cancelled = *state.scan_cancel.lock();
+    if cancelled {
+        let _ = app.emit("library:scan_cancelled", ());
+        state.job_queue.clear_running();
+    }
     let _ = app.emit("library:scan_finished", ());
     let _ = app.emit("library:discovered", &result);
 
     Ok(result)
+}
+
+#[tauri::command]
+pub async fn cancel_scan(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    let mut cancel = state.scan_cancel.lock();
+    *cancel = true;
+    Ok(())
 }
 
 #[tauri::command]

@@ -15,6 +15,9 @@ export interface AppStore {
   scanProgress: { total: number; processed: number } | null;
   activePlayingIds: Set<string>;
   maxConcurrentVideos: number;
+  lastWarning: string | null;
+  warningTimeoutId: number;
+  scanCancelled: boolean;
 }
 
 const [store, setStore] = createStore<AppStore>({
@@ -30,6 +33,9 @@ const [store, setStore] = createStore<AppStore>({
   scanProgress: null,
   activePlayingIds: new Set(),
   maxConcurrentVideos: 16,
+  lastWarning: null,
+  warningTimeoutId: 0,
+  scanCancelled: false,
 });
 
 export { store, setStore };
@@ -127,18 +133,20 @@ export function unregisterPlaying(id: string) {
 
 export function setAutoplay(value: boolean) {
   setStore('autoplay', value);
-  persistSettings();
+  const { density } = store;
+  persistSettings(value, density);
 }
 
 export function setDensity(value: number) {
   setStore('density', value);
-  persistSettings();
+  const { autoplay } = store;
+  persistSettings(autoplay, value);
 }
 
-function persistSettings() {
+function persistSettings(autoplay: boolean, density: number) {
   const settings: AppSettings = {
-    autoplay: store.autoplay,
-    density: store.density,
+    autoplay,
+    density,
   };
   invoke('save_app_settings', { settings }).catch(console.error);
 }

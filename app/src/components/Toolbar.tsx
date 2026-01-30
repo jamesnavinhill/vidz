@@ -17,12 +17,12 @@ export default function Toolbar() {
     
     if (selected && typeof selected === 'string') {
       setStore('scanning', true);
-      try {
-        await invoke('add_watched_folder', { path: selected });
-      } finally {
-        setStore('scanning', false);
-      }
+      await invoke('add_watched_folder', { path: selected });
     }
+  };
+
+  const cancelScan = async () => {
+    await invoke('cancel_scan');
   };
   
   const sortOptions: { value: SortMode; label: string }[] = [
@@ -62,6 +62,21 @@ export default function Toolbar() {
       >
         {store.scanning ? 'Scanning...' : 'Add Folder'}
       </button>
+      <Show when={store.scanning}>
+        <button
+          onClick={cancelScan}
+          style={{
+            padding: '6px 10px',
+            background: 'transparent',
+            border: '1px solid #444',
+            'border-radius': '4px',
+            color: '#aaa',
+            cursor: 'pointer',
+          }}
+        >
+          Cancel
+        </button>
+      </Show>
       
       <div style={{ display: 'flex', 'align-items': 'center', gap: '6px' }}>
         <label style={{ color: '#888', 'font-size': '13px' }}>Sort:</label>
@@ -140,6 +155,16 @@ export default function Toolbar() {
       </label>
       
       <div style={{ flex: 1 }} />
+
+      <Show when={store.scanCancelled}>
+        <div style={{ color: '#b08d57', 'font-size': '12px' }}>Scan cancelled</div>
+      </Show>
+
+      <Show when={store.lastWarning}>
+        <div style={{ color: '#b08d57', 'font-size': '12px', 'max-width': '160px' }}>
+          {store.lastWarning}
+        </div>
+      </Show>
       
       <label
         style={{

@@ -25,11 +25,24 @@ pub fn run() {
             let ffprobe_path = get_ffprobe_path(&app.handle());
             let ffmpeg_path = get_ffmpeg_path(&app.handle());
             let job_queue = JobQueue::new(db.clone(), ffprobe_path, ffmpeg_path);
+
+            if let Ok(resource_dir) = app.path().resource_dir() {
+                let ffprobe_bundled = resource_dir.join("bin").join("ffprobe.exe");
+                if !ffprobe_bundled.exists() {
+                    eprintln!("Bundled ffprobe not found at {}", ffprobe_bundled.display());
+                }
+
+                let ffmpeg_bundled = resource_dir.join("bin").join("ffmpeg.exe");
+                if !ffmpeg_bundled.exists() {
+                    eprintln!("Bundled ffmpeg not found at {}", ffmpeg_bundled.display());
+                }
+            }
             
             let state = Arc::new(AppState {
                 db,
                 watcher: Mutex::new(FileWatcher::new()),
                 job_queue,
+                scan_cancel: Arc::new(Mutex::new(false)),
             });
             
             app.manage(state);
@@ -39,6 +52,7 @@ pub fn run() {
             commands::get_library,
             commands::set_favorite,
             commands::scan_directories,
+            commands::cancel_scan,
             commands::add_watched_folder,
             commands::get_watched_folders,
             commands::remove_watched_folder,

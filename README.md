@@ -54,6 +54,22 @@ pnpm install
 pnpm tauri dev
 ```
 
+### Tooling
+
+```bash
+cd app
+pnpm lint
+pnpm format
+pnpm format:check
+pnpm test
+```
+
+```bash
+cd app/src-tauri
+cargo fmt
+cargo clippy
+```
+
 ### Build
 
 ```bash

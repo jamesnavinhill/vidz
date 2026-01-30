@@ -25,6 +25,16 @@ impl Database {
         Ok(db)
     }
 
+    #[cfg(test)]
+    pub fn new_in_memory() -> Result<Self> {
+        let conn = Connection::open_in_memory()?;
+        let db = Self {
+            conn: Arc::new(Mutex::new(conn)),
+        };
+        db.init_schema()?;
+        Ok(db)
+    }
+
     fn get_db_path() -> PathBuf {
         if let Some(proj_dirs) = ProjectDirs::from("com", "vidz", "Vidz") {
             proj_dirs.data_dir().join("library.db")
@@ -87,11 +97,11 @@ impl Database {
                 folder = excluded.folder,
                 size_bytes = excluded.size_bytes,
                 mtime = excluded.mtime,
-                duration_ms = COALESCE(excluded.duration_ms, duration_ms),
-                width = COALESCE(excluded.width, width),
-                height = COALESCE(excluded.height, height),
-                aspect_ratio = COALESCE(excluded.aspect_ratio, aspect_ratio),
-                thumb_path = COALESCE(excluded.thumb_path, thumb_path),
+                duration_ms = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.duration_ms, duration_ms) END,
+                width = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.width, width) END,
+                height = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.height, height) END,
+                aspect_ratio = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.aspect_ratio, aspect_ratio) END,
+                thumb_path = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.thumb_path, thumb_path) END,
                 last_scanned = strftime('%s', 'now')",
             params![
                 video.id,
@@ -342,5 +352,67 @@ impl Clone for Database {
         Self {
             conn: Arc::clone(&self.conn),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_video(id: &str, path: &str, mtime: i64) -> VideoItem {
+        VideoItem {
+            id: id.to_string(),
+            path: path.to_string(),
+            folder: "C:/videos".to_string(),
+            size_bytes: 123,
+            mtime,
+            duration_ms: Some(1000),
+            width: Some(320),
+            height: Some(200),
+            aspect_ratio: Some(1.6),
+            favorite: false,
+            thumb_path: Some("thumbs/one.jpg".to_string()),
+        }
+    }
+
+    #[test]
+    fn upsert_preserves_metadata_when_mtime_unchanged() {
+        let db = Database::new_in_memory().expect("db");
+        let mut video = sample_video("id-1", "C:/videos/one.mp4", 10);
+        db.upsert_video(&video).expect("upsert");
+
+        video.duration_ms = None;
+        video.width = None;
+        video.height = None;
+        video.aspect_ratio = None;
+        video.thumb_path = None;
+        db.upsert_video(&video).expect("upsert 2");
+
+        let stored = db.get_video_by_id("id-1").expect("get").unwrap();
+        assert_eq!(stored.duration_ms, Some(1000));
+        assert_eq!(stored.width, Some(320));
+        assert_eq!(stored.height, Some(200));
+        assert_eq!(stored.thumb_path.as_deref(), Some("thumbs/one.jpg"));
+    }
+
+    #[test]
+    fn upsert_resets_metadata_when_mtime_changes() {
+        let db = Database::new_in_memory().expect("db");
+        let video = sample_video("id-2", "C:/videos/two.mp4", 10);
+        db.upsert_video(&video).expect("upsert");
+
+        let mut updated = sample_video("id-2", "C:/videos/two.mp4", 11);
+        updated.duration_ms = None;
+        updated.width = None;
+        updated.height = None;
+        updated.aspect_ratio = None;
+        updated.thumb_path = None;
+        db.upsert_video(&updated).expect("upsert 2");
+
+        let stored = db.get_video_by_id("id-2").expect("get").unwrap();
+        assert_eq!(stored.duration_ms, None);
+        assert_eq!(stored.width, None);
+        assert_eq!(stored.height, None);
+        assert_eq!(stored.thumb_path, None);
     }
 }

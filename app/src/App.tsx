@@ -1,4 +1,4 @@
-import { onMount, Show } from 'solid-js';
+import { onCleanup, onMount, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { store, setStore, upsertVideos, removeVideo, removeVideos } from './store';
@@ -6,6 +6,7 @@ import { VideoItem, ScanProgress, AppSettings } from './types';
 import VideoGrid from './components/VideoGrid';
 import Toolbar from './components/Toolbar';
 import FocusedPlayer from './components/FocusedPlayer';
+import WarningToast from './components/WarningToast';
 import './App.css';
 
 function App() {
@@ -33,41 +34,69 @@ function App() {
       if (flushTimeout !== null) return;
       flushTimeout = window.setTimeout(flushUpdates, 120);
     };
-    
-    listen<VideoItem[]>('library:discovered', (event) => {
+
+    const unlistenDiscovered = await listen<VideoItem[]>('library:discovered', (event) => {
       pendingUpdates.push(...event.payload);
       scheduleFlush();
     });
-    
-    listen<VideoItem[]>('library:updated', (event) => {
+
+    const unlistenUpdated = await listen<VideoItem[]>('library:updated', (event) => {
       pendingUpdates.push(...event.payload);
       scheduleFlush();
     });
-    
-    listen<string>('library:removed', (event) => {
+
+    const unlistenRemoved = await listen<string>('library:removed', (event) => {
       removeVideo(event.payload);
     });
 
-    listen<string[]>('library:removed_bulk', (event) => {
+    const unlistenRemovedBulk = await listen<string[]>('library:removed_bulk', (event) => {
       removeVideos(event.payload);
     });
-    
-    listen<ScanProgress>('library:scan_progress', (event) => {
+
+    const unlistenScanProgress = await listen<ScanProgress>('library:scan_progress', (event) => {
       setStore('scanProgress', {
         total: event.payload.total,
         processed: event.payload.processed,
       });
     });
-    
-    listen('library:scan_finished', () => {
+
+    const unlistenScanFinished = await listen('library:scan_finished', () => {
       setStore('scanProgress', null);
+      setStore('scanning', false);
     });
-    
+
+    const unlistenWarnings = await listen<string>('library:warning', (event) => {
+      setStore('lastWarning', event.payload);
+      window.clearTimeout(store.warningTimeoutId);
+      const timeoutId = window.setTimeout(() => {
+        setStore('lastWarning', null);
+      }, 4500);
+      setStore('warningTimeoutId', timeoutId);
+    });
+
+    const unlistenCancelled = await listen('library:scan_cancelled', () => {
+      setStore('scanCancelled', true);
+      setStore('scanning', false);
+      window.setTimeout(() => setStore('scanCancelled', false), 3000);
+    });
+
     await invoke('start_file_watcher');
     
     if (videos.length > 0) {
       invoke('process_pending_jobs');
     }
+
+    onCleanup(() => {
+      window.clearTimeout(store.warningTimeoutId);
+      unlistenDiscovered();
+      unlistenUpdated();
+      unlistenRemoved();
+      unlistenRemovedBulk();
+      unlistenScanProgress();
+      unlistenScanFinished();
+      unlistenWarnings();
+      unlistenCancelled();
+    });
   });
 
   return (
@@ -123,6 +152,7 @@ function App() {
       </Show>
       
       <FocusedPlayer />
+      <WarningToast />
     </div>
   );
 }
