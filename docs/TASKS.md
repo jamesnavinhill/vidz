@@ -203,6 +203,15 @@ Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 
 
 ---
 
+## Dependency Notes
+
+- **glib advisory (Dependabot #1)**: Blocked by Tauri/GTK constraints.
+  - Current stack: `tauri 2.9.5` → `gtk 0.18.x` → `glib 0.18.x`.
+  - Patched version requires `glib 0.20+`, which is not yet compatible with `gtk 0.18`.
+  - **Action:** Revisit after Tauri/GTK upgrades to a `glib 0.20+` compatible release.
+
+---
+
 ## Total Estimated Time
 
 | Phase | Estimate |
