@@ -1,1 +1,47 @@
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# Rust
+target/
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Media/Videos (The user explicitly mentioned these stay local/not pushed)
 best/
+*.mp4
+*.mkv
+*.webm
+*.avi
+*.mov
+*.wmv
+*.flv
+*.m4v
+*.mpeg
+*.mpg
+*.3gp
+
+# Tauri
+app/src-tauri/binaries/
+

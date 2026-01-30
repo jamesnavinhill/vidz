@@ -44,7 +44,7 @@ interface VideoItem {
 - Node.js 18+
 - pnpm
 - Rust 1.70+
-- ffmpeg & ffprobe (in PATH or bundled in `src-tauri/bin/`)
+- ffmpeg & ffprobe (in PATH or bundled in `app/src-tauri/bin/`)
 
 ### Setup
 
@@ -57,29 +57,34 @@ pnpm tauri dev
 ### Build
 
 ```bash
+cd app
 pnpm tauri build
 ```
 
 ## Project Structure
 
 ```
-app/
-├── src/                    # Frontend (SolidJS)
-│   ├── components/
-│   │   ├── VideoGrid.tsx   # Virtualized grid
-│   │   ├── VideoTile.tsx   # Individual video tile
-│   │   ├── FocusedPlayer.tsx
-│   │   └── Toolbar.tsx     # Sort/filter controls
-│   ├── store.ts            # App state
-│   └── types.ts            # TypeScript types
-├── src-tauri/              # Backend (Rust)
-│   ├── src/
-│   │   ├── commands/       # Tauri commands
-│   │   ├── db/             # SQLite database
-│   │   ├── scanner/        # File scanning & media processing
-│   │   ├── models.rs       # Data models
-│   │   └── lib.rs          # App entry
-│   └── bin/                # Bundled ffmpeg/ffprobe
-└── docs/
-    └── plan.md             # Product spec
+.
+├── app/                     # Tauri app (SolidJS + Rust)
+│   ├── src/                 # Frontend (SolidJS)
+│   │   ├── components/
+│   │   │   ├── VideoGrid.tsx   # Virtualized grid
+│   │   │   ├── VideoTile.tsx   # Individual video tile
+│   │   │   ├── FocusedPlayer.tsx
+│   │   │   └── Toolbar.tsx     # Sort/filter controls
+│   │   ├── store.ts            # App state
+│   │   └── types.ts            # TypeScript types
+│   ├── src-tauri/            # Backend (Rust)
+│   │   ├── src/
+│   │   │   ├── commands/       # Tauri commands
+│   │   │   ├── db/             # SQLite database
+│   │   │   ├── scanner/        # File scanning & media processing
+│   │   │   ├── models.rs       # Data models
+│   │   │   └── lib.rs          # App entry
+│   │   └── bin/                # Bundled ffmpeg/ffprobe
+│   └── README.md               # (Deprecated) Old location
+├── docs/
+│   ├── plan.md                 # Product spec
+│   └── audit-report.md
+└── README.md                   # Project overview (this file)
 ```
