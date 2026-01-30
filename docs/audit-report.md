@@ -25,17 +25,21 @@ Core product goals are achieved: the app is functional with grid playback, focus
 ## Gaps / Not Yet Implemented (from TASKS.md)
 
 ### Phase 1 — Scaffolding
+
 - **1.4** 10k placeholder grid prototype (explicit benchmark prototype not present)
 - **1.5** Rust tooling setup (rustfmt/clippy config & scripts)
 - **1.6** Frontend tooling setup (eslint/prettier minimal)
 
 ### Phase 2 — Metadata
+
 - **2.3.4** Skip ffprobe if mtime unchanged and fields exist
 
 ### Phase 6 — Performance Hardening
+
 - **6.9** Scan cancellation support
 
 ### Phase 7 — Polish & Release
+
 - **7.4** Surface non-fatal failures subtly in UI
 - **7.6** Verify path resolution in production builds
 - **7.7** Configure installer metadata beyond icons (publisher, description, etc.)
@@ -50,6 +54,7 @@ The task list still shows **2.3.1** and **2.4.1** (ffprobe/ffmpeg bundling) unch
 ## Optimizations (Industry-Standard Ideas)
 
 ### Frontend Rendering
+
 - **Reduce reactive churn**: ensure derived lists (sorted/filtered) are memoized once per change, not per render.
 - **Virtualization tuning**: adjust overscan based on GPU/RAM; consider dynamic overscan during fast scroll.
 - **Video element pooling**: reuse a limited pool of `<video>` elements to avoid mount/unmount spikes.
@@ -57,21 +62,25 @@ The task list still shows **2.3.1** and **2.4.1** (ffprobe/ffmpeg bundling) unch
 - **CSS containment**: add `contain: content` to tiles/rows to reduce layout/reflow cost.
 
 ### Media Pipeline
+
 - **Thumb generation batcher**: queue thumbnails in batches with backpressure based on UI activity.
 - **Thumb size discipline**: generate thumbnails at display resolution only; avoid oversized JPEGs.
 - **Decode hints**: use `preload="metadata"` for grid videos when autoplay is off.
 
 ### Database / Storage
+
 - **WAL mode + tuned pragmas**: ensure SQLite runs in WAL with tuned cache size for large libraries.
 - **Bulk upserts**: batch DB writes per folder scan to reduce fsync overhead.
 - **Thumb cleanup jobs**: background sweep for orphaned thumbnails.
 
 ### File Watching & Scanning
+
 - **Scan cancellation**: allow cancel token to stop current scan without blocking UI.
 - **Incremental scanning**: persist last scan cursor and only rescan deltas on startup.
 - **Debounce strategy**: adaptive debounce for bursty folder changes (large copy operations).
 
 ### Tauri / Build
+
 - **Release CSP**: reintroduce a minimal CSP for production safety.
 - **Disable devtools**: ensure devtools are not available in release builds.
 - **Installer metadata**: add publisher, description, and upgrade code for Windows installer polish.
