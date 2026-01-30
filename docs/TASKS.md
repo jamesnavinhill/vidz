@@ -75,6 +75,7 @@
   - `library:updated`
   - `library:scan_progress`
   - `library:scan_finished`
+- [x] **2.5.5** Trigger job processing after watcher ingest (auto metadata/thumbs)
 
 ### 2.6 Tauri Commands
 
@@ -182,6 +183,7 @@
 
 ### I/O
 
+- [x] **6.7.1** Hide ffmpeg/ffprobe console windows in release builds (Windows)
 - [x] **6.7** Tune ffmpeg concurrency (2 thumbnails, 4 metadata)
 - [x] **6.8** Ensure scanning doesn't block UI
 - [x] **6.9** Add scan cancellation support

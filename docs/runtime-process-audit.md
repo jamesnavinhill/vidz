@@ -4,7 +4,7 @@
 
 ## Scope
 
-Review current ffmpeg/ffprobe execution, sidecar usage, batching/queueing, and caching. Provide improvement options only (no code changes).
+Review current ffmpeg/ffprobe execution, sidecar usage, batching/queueing, and caching. Updated to reflect completed improvements.
 
 ## ffmpeg/ffprobe Usage (Current)
 
@@ -18,9 +18,9 @@ Review current ffmpeg/ffprobe execution, sidecar usage, batching/queueing, and c
 - **Sidecar usage:**
   - No Tauri sidecar config is used here yet; binaries are launched directly with `Command::new(...)`.
 
-## Why Console Windows Appear in Release
+## Why Console Windows Appear in Release (Resolved)
 
-When the app is launched from the `.exe` (not from a terminal), each `Command::new(ffmpeg/ffprobe)` can create its own console window on Windows. In `pnpm tauri dev`, the process is already attached to a console so the popups are less noticeable. This explains the difference you observed.
+When the app is launched from the `.exe` (not from a terminal), each `Command::new(ffmpeg/ffprobe)` can create its own console window on Windows. We now apply `CREATE_NO_WINDOW` when spawning these processes in `scanner/mod.rs`, so the release build no longer spawns visible terminal windows per file.
 
 ## Sidecar vs. No-Window Process Flags
 
@@ -34,7 +34,7 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
 - Gives more structured lifecycle and distribution control.
 - More involved to retrofit; best if you want standardized process management and arguments.
 
-**Conclusion:** Given the current architecture, **no-window flags** are the cleaner and lower-risk fix. Sidecar is more “official,” but requires extra setup and refactor.
+**Conclusion:** Given the current architecture, **no-window flags** were implemented as the cleaner, lower-risk fix. Sidecar remains a future option if we want centralized process management.
 
 ## Batching / Queueing (Current)
 
@@ -52,11 +52,11 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
   - Debounces events by 500ms.
   - Retries file size > 0 check (copy-in-progress handling).
   - On file create/modify: upserts and emits `library:discovered`.
-  - **It does not currently trigger metadata/thumbnail job processing**, so new files added by watcher will wait until `process_pending_jobs` is called elsewhere.
+  - Now triggers `JobQueue::process_all` after a new file is ingested, so metadata/thumbnail processing starts automatically for watcher events.
 
 ### Queueing Gaps / Improvement Ideas
 
-- Add a small “job enqueue” step when watcher detects a new file (or trigger `process_all`).
+- ✅ Implemented: watcher triggers job queue processing on create/modify.
 - Optional batch DB updates during scan to reduce fsync overhead for very large libraries.
 - Consider a unified job scheduler that accepts work from both initial scans and watcher events.
 
@@ -71,23 +71,23 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
 
 - **Settings cache:** stored in `settings` table (`watched_folders`, `app_settings`).
 
-### Cache Gaps / Improvement Ideas
+### Cache Improvements
 
 - **Startup re-scan optimization:** Current behavior still iterates all files during scan. Consider tracking scan cursor or a folder hash to skip untouched directories.
-- **Thumbnail hygiene:** background cleanup for orphaned thumbs (if files removed outside watcher coverage).
-- **Metadata cache validation:** optionally persist a `last_scanned` and reuse results unless size/mtime changes (partially present via `mtime` logic).
-- **Index tuning / WAL mode:** ensure SQLite uses WAL + tuned pragmas for large libraries.
+- ✅ **Thumbnail hygiene:** `Database::cleanup_orphaned_thumbnails()` runs on startup to remove stale thumbnails.
+- ✅ **Index tuning / WAL mode:** SQLite WAL + pragmas applied on database creation.
+- **Metadata cache validation:** still relies on `mtime` checks; optional future work to add more granular cache keys.
 
 ## Recommendation Summary
 
-1. **Hide ffmpeg/ffprobe console windows** using Windows no-console flags on process spawn. This is the fastest, lowest-risk fix.
-2. **Keep current JobQueue semaphores** (4 metadata / 2 thumbs) — they already act as a batch limiter.
-3. **Bridge watcher events to the JobQueue** so new files picked up after launch automatically get metadata and thumbnails.
-4. **Add cache hygiene**: optional cleanup of stale thumbnails and incremental scan skipping for unchanged folders.
+1. ✅ **Hidden ffmpeg/ffprobe console windows** using Windows no-console flags on process spawn.
+2. **JobQueue semaphores** remain at 4 metadata / 2 thumbs.
+3. ✅ **Watcher events now bridge to JobQueue** for auto metadata/thumbnail processing.
+4. ✅ **Cache hygiene**: startup cleanup of stale thumbnails + WAL pragmas.
 
 ## Relevant Code Locations
 
 - ffmpeg/ffprobe calls: `app/src-tauri/src/scanner/mod.rs`
 - Job batching: `app/src-tauri/src/jobs/mod.rs`
 - File watcher + debounce: `app/src-tauri/src/watcher/mod.rs`
-- Cache storage: `app/src-tauri/src/db/mod.rs`
+- Cache storage + cleanup: `app/src-tauri/src/db/mod.rs`

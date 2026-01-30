@@ -10,6 +10,16 @@ const VIDEO_EXTENSIONS: &[&str] = &[
     "mp4", "mkv", "webm", "avi", "mov", "wmv", "flv", "m4v", "mpg", "mpeg", "3gp"
 ];
 
+#[cfg(windows)]
+fn apply_no_window(command: &mut std::process::Command) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+fn apply_no_window(_command: &mut std::process::Command) {}
+
 pub fn compute_video_id(path: &Path) -> String {
     let canonical = path.to_string_lossy();
     let mut hasher = Sha256::new();
@@ -111,8 +121,10 @@ fn create_video_item(path: &Path) -> Option<VideoItem> {
 
 pub fn extract_metadata(video_path: &str, ffprobe_path: &Path) -> Option<(i64, i32, i32)> {
     use std::process::Command;
-    
-    let output = Command::new(ffprobe_path)
+
+    let mut command = Command::new(ffprobe_path);
+    apply_no_window(&mut command);
+    let output = command
         .args([
             "-v", "quiet",
             "-print_format", "json",
@@ -149,12 +161,14 @@ pub fn generate_thumbnail(
     ffmpeg_path: &Path,
 ) -> Result<(), String> {
     use std::process::Command;
-    
+
     if let Some(parent) = thumb_path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
 
-    let output = Command::new(ffmpeg_path)
+    let mut command = Command::new(ffmpeg_path);
+    apply_no_window(&mut command);
+    let output = command
         .args([
             "-y",
             "-i", video_path,

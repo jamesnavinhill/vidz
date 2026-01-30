@@ -198,8 +198,8 @@ pub async fn start_file_watcher(
     
     {
         let mut watcher = state.watcher.lock();
-        watcher.start(state.db.clone(), app.clone())?;
-        
+        watcher.start(state.db.clone(), app.clone(), state.job_queue.clone())?;
+
         for folder in folders {
             watcher.watch(PathBuf::from(folder)).ok();
         }

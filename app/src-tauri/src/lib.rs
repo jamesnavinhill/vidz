@@ -21,6 +21,11 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let db = Database::new().expect("Failed to initialize database");
+            if let Ok(removed) = db.cleanup_orphaned_thumbnails() {
+                if removed > 0 {
+                    println!("Cleaned up {} orphaned thumbnails", removed);
+                }
+            }
             
             let ffprobe_path = get_ffprobe_path(&app.handle());
             let ffmpeg_path = get_ffmpeg_path(&app.handle());

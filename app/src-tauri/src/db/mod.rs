@@ -21,6 +21,7 @@ impl Database {
         let db = Self {
             conn: Arc::new(Mutex::new(conn)),
         };
+        db.apply_pragmas()?;
         db.init_schema()?;
         Ok(db)
     }
@@ -31,8 +32,19 @@ impl Database {
         let db = Self {
             conn: Arc::new(Mutex::new(conn)),
         };
+        db.apply_pragmas()?;
         db.init_schema()?;
         Ok(db)
+    }
+
+    fn apply_pragmas(&self) -> Result<()> {
+        let conn = self.conn.lock();
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL;
+             PRAGMA synchronous = NORMAL;
+             PRAGMA temp_store = MEMORY;",
+        )?;
+        Ok(())
     }
 
     fn get_db_path() -> PathBuf {
@@ -53,6 +65,37 @@ impl Database {
             std::fs::create_dir_all(&path).ok();
             path
         }
+    }
+
+    pub fn cleanup_orphaned_thumbnails(&self) -> Result<usize> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare("SELECT thumb_path FROM videos WHERE thumb_path IS NOT NULL")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
+        let mut valid = std::collections::HashSet::new();
+        for row in rows {
+            if let Ok(path) = row {
+                valid.insert(path);
+            }
+        }
+        drop(stmt);
+
+        let thumbs_dir = Self::get_thumbs_dir();
+        let mut removed = 0;
+        if let Ok(entries) = std::fs::read_dir(&thumbs_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_file() {
+                    continue;
+                }
+                let path_str = path.to_string_lossy().to_string();
+                if !valid.contains(&path_str) {
+                    if std::fs::remove_file(&path).is_ok() {
+                        removed += 1;
+                    }
+                }
+            }
+        }
+        Ok(removed)
     }
 
     fn init_schema(&self) -> Result<()> {

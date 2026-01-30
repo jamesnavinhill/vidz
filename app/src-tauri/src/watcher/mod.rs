@@ -7,6 +7,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 
 use crate::db::Database;
+use crate::jobs::JobQueue;
 use crate::models::VideoItem;
 use crate::scanner::{self, is_video_file};
 
@@ -23,11 +24,17 @@ impl FileWatcher {
         }
     }
 
-    pub fn start(&mut self, db: Database, app: AppHandle) -> Result<(), String> {
+    pub fn start(
+        &mut self,
+        db: Database,
+        app: AppHandle,
+        job_queue: JobQueue,
+    ) -> Result<(), String> {
         let (tx, mut rx) = mpsc::channel::<Event>(100);
 
         let db_clone = db.clone();
         let app_clone = app.clone();
+        let job_queue_clone = job_queue.clone();
 
         tokio::spawn(async move {
             let mut debounce_map: std::collections::HashMap<PathBuf, tokio::time::Instant> =
@@ -50,7 +57,8 @@ impl FileWatcher {
 
                     match event.kind {
                         EventKind::Create(_) | EventKind::Modify(_) => {
-                            handle_file_change(&db_clone, &app_clone, &path).await;
+                            handle_file_change(&db_clone, &app_clone, &job_queue_clone, &path)
+                                .await;
                         }
                         EventKind::Remove(_) => {
                             handle_file_remove(&db_clone, &app_clone, &path).await;
@@ -101,7 +109,12 @@ impl FileWatcher {
     }
 }
 
-async fn handle_file_change(db: &Database, app: &AppHandle, path: &PathBuf) {
+async fn handle_file_change(
+    db: &Database,
+    app: &AppHandle,
+    job_queue: &JobQueue,
+    path: &PathBuf,
+) {
     if !path.exists() {
         return;
     }
@@ -153,6 +166,12 @@ async fn handle_file_change(db: &Database, app: &AppHandle, path: &PathBuf) {
     }
 
     let _ = app.emit("library:discovered", vec![video]);
+
+    let app_clone = app.clone();
+    let job_queue_clone = job_queue.clone();
+    tokio::spawn(async move {
+        job_queue_clone.process_all(app_clone).await;
+    });
 }
 
 async fn handle_file_remove(db: &Database, app: &AppHandle, path: &PathBuf) {
