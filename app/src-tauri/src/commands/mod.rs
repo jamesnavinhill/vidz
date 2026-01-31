@@ -127,6 +127,7 @@ pub async fn add_watched_folder(
             .db
             .save_watched_folders(&folders)
             .map_err(|e| e.to_string())?;
+        let _ = app.emit("library:watched_folders_updated", folders.clone());
     }
 
     {
@@ -162,6 +163,7 @@ pub async fn remove_watched_folder(
         .db
         .save_watched_folders(&folders)
         .map_err(|e| e.to_string())?;
+    let _ = app.emit("library:watched_folders_updated", folders.clone());
 
     let videos = state
         .db

@@ -11,13 +11,15 @@ import './App.css';
 
 function App() {
   onMount(async () => {
-    const [videos, settings] = await Promise.all([
+    const [videos, settings, folders] = await Promise.all([
       invoke<VideoItem[]>('get_library'),
       invoke<AppSettings>('get_app_settings'),
+      invoke<string[]>('get_watched_folders'),
     ]);
     setStore('videos', videos);
     setStore('autoplay', settings.autoplay);
     setStore('density', settings.density);
+    setStore('watchedFolders', folders);
 
     let pendingUpdates: VideoItem[] = [];
     let flushTimeout: number | null = null;
@@ -80,6 +82,13 @@ function App() {
       window.setTimeout(() => setStore('scanCancelled', false), 3000);
     });
 
+    const unlistenWatchedFolders = await listen<string[]>(
+      'library:watched_folders_updated',
+      (event) => {
+        setStore('watchedFolders', event.payload);
+      },
+    );
+
     await invoke('start_file_watcher');
 
     if (videos.length > 0) {
@@ -96,6 +105,7 @@ function App() {
       unlistenScanFinished();
       unlistenWarnings();
       unlistenCancelled();
+      unlistenWatchedFolders();
     });
   });
 

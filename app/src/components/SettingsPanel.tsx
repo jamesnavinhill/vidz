@@ -1,19 +1,14 @@
-import { createSignal, For, Show, onMount } from 'solid-js';
+import { createSignal, For, Show } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import { store, setStore, setAutoplay } from '../store';
 
 export default function SettingsPanel() {
   const [isOpen, setIsOpen] = createSignal(false);
-  const [watchedFolders, setWatchedFolders] = createSignal<string[]>([]);
-
-  onMount(async () => {
-    const folders = await invoke<string[]>('get_watched_folders');
-    setWatchedFolders(folders);
-  });
+  const watchedFolders = () => store.watchedFolders;
 
   const removeFolder = async (path: string) => {
     await invoke('remove_watched_folder', { path });
-    setWatchedFolders((folders) => folders.filter((f) => f !== path));
+    setStore('watchedFolders', (folders) => folders.filter((f) => f !== path));
   };
 
   const getFolderName = (path: string) => {

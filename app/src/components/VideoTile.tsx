@@ -98,6 +98,7 @@ export default function VideoTile(props: Props) {
           position: 'absolute',
           top: 0,
           left: 0,
+          'background-color': '#1a1a1a',
         }}
       />
 

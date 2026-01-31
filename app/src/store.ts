@@ -4,6 +4,7 @@ import { VideoItem, SortMode, SortDirection, AppSettings } from './types';
 
 export interface AppStore {
   videos: VideoItem[];
+  watchedFolders: string[];
   autoplay: boolean;
   sortMode: SortMode;
   sortDirection: SortDirection;
@@ -19,10 +20,13 @@ export interface AppStore {
   lastWarning: string | null;
   warningTimeoutId: number;
   scanCancelled: boolean;
+  toolbarCollapsed: boolean;
+  toolbarManualCollapsed: boolean;
 }
 
 const [store, setStore] = createStore<AppStore>({
   videos: [],
+  watchedFolders: [],
   autoplay: true,
   sortMode: 'folder',
   sortDirection: 'asc',
@@ -38,6 +42,8 @@ const [store, setStore] = createStore<AppStore>({
   lastWarning: null,
   warningTimeoutId: 0,
   scanCancelled: false,
+  toolbarCollapsed: false,
+  toolbarManualCollapsed: false,
 });
 
 export { store, setStore };

@@ -83,6 +83,11 @@ export default function VideoGrid() {
         width: '100%',
         overflow: 'auto',
       }}
+      onScroll={() => {
+        if (!store.toolbarManualCollapsed) {
+          setStore('toolbarCollapsed', true);
+        }
+      }}
     >
       <div
         style={{
