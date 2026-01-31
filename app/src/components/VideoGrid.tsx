@@ -68,6 +68,12 @@ export default function VideoGrid() {
   const virtualRows = createMemo(() => virtualizer().getVirtualItems());
   const totalSize = createMemo(() => virtualizer().getTotalSize());
 
+  createEffect(() => {
+    videos();
+    columnCount();
+    virtualizer().measure();
+  });
+
   return (
     <div
       ref={containerRef}
