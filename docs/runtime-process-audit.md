@@ -9,11 +9,11 @@ Review current ffmpeg/ffprobe execution, sidecar usage, batching/queueing, and c
 ## ffmpeg/ffprobe Usage (Current)
 
 - **Invocation points:**
-  - `app/src-tauri/src/scanner/mod.rs`
+  - `src-tauri/src/scanner/mod.rs`
     - `extract_metadata()` uses `std::process::Command` to call **ffprobe**.
     - `generate_thumbnail()` uses `std::process::Command` to call **ffmpeg**.
 - **Paths:**
-  - Resolved via `get_ffprobe_path()` and `get_ffmpeg_path()` in `app/src-tauri/src/commands/mod.rs`.
+  - Resolved via `get_ffprobe_path()` and `get_ffmpeg_path()` in `src-tauri/src/commands/mod.rs`.
   - Prefer bundled binaries in `resources/bin/` if present; fallback to PATH.
 - **Sidecar usage:**
   - No Tauri sidecar config is used here yet; binaries are launched directly with `Command::new(...)`.
@@ -38,7 +38,7 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
 
 ## Batching / Queueing (Current)
 
-- **JobQueue** (`app/src-tauri/src/jobs/mod.rs`):
+- **JobQueue** (`src-tauri/src/jobs/mod.rs`):
   - Metadata extraction uses a semaphore of **4** concurrent ffprobe jobs.
   - Thumbnail generation uses a semaphore of **2** concurrent ffmpeg jobs.
   - `process_all()` runs metadata first, then thumbnails, and prevents overlapping runs via `running` mutex.
@@ -48,7 +48,7 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
   - Reports progress to UI.
   - No chunked batching for DB writes, but does respect scan cancellation.
 
-- **Watcher** (`app/src-tauri/src/watcher/mod.rs`):
+- **Watcher** (`src-tauri/src/watcher/mod.rs`):
   - Debounces events by 500ms.
   - Retries file size > 0 check (copy-in-progress handling).
   - On file create/modify: upserts and emits `library:discovered`.
@@ -87,7 +87,7 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
 
 ## Relevant Code Locations
 
-- ffmpeg/ffprobe calls: `app/src-tauri/src/scanner/mod.rs`
-- Job batching: `app/src-tauri/src/jobs/mod.rs`
-- File watcher + debounce: `app/src-tauri/src/watcher/mod.rs`
-- Cache storage + cleanup: `app/src-tauri/src/db/mod.rs`
+- ffmpeg/ffprobe calls: `src-tauri/src/scanner/mod.rs`
+- Job batching: `src-tauri/src/jobs/mod.rs`
+- File watcher + debounce: `src-tauri/src/watcher/mod.rs`
+- Cache storage + cleanup: `src-tauri/src/db/mod.rs`

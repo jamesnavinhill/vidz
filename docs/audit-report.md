@@ -94,10 +94,10 @@ Added non-fatal warning surfacing (toast + toolbar status) and warning emissions
 Completed tooling and test scaffolding: Rust fmt/clippy config, ESLint/Prettier/Vitest setup, Rust/TS unit tests, installer metadata, and updated docs/TASKS/audit report.
 Tests:
 
-pnpm --dir app lint
-pnpm --dir app test
-cargo check --manifest-path app/src-tauri/Cargo.toml
-cargo test --manifest-path app/src-tauri/Cargo.toml
+pnpm lint
+pnpm test
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
 
 ## Suggested Next Steps
 
