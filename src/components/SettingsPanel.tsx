@@ -91,7 +91,7 @@ export default function SettingsPanel() {
                   checked={store.autoplay}
                   onChange={(e) => setAutoplay(e.target.checked)}
                 />
-                Autoplay videos on hover
+                Autoplay visible videos (off = hover to play)
               </label>
             </div>
 

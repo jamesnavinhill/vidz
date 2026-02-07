@@ -1,39 +1,64 @@
 # Vidz - Agent Instructions
 
 ## Project Structure
+
 - `/` - Tauri 2.x application (SolidJS frontend + Rust backend)
-- `docs/` - Documentation and planning
+- `docs/` - active project documentation
+- `docs/audits/` - audits and phased roadmap checklists
+- `docs/_legacy/` - historical planning/task docs
+
+## Current Source-of-Truth Docs
+
+- `docs/ARCHITECTURE.md`
+- `docs/OPERATIONS.md`
+- `docs/PERFORMANCE.md`
+- `docs/audits/optimization-roadmap.md`
 
 ## Commands
 
 ### Frontend (from repo root)
+
 ```bash
-pnpm install          # Install dependencies
-pnpm dev              # Start Vite dev server
-pnpm build            # Build frontend
-pnpm exec tsc --noEmit  # TypeScript check
+pnpm install
+pnpm dev
+pnpm build
+pnpm exec tsc --noEmit
+pnpm lint
+pnpm test
 ```
 
-### Backend (from src-tauri/)
+### Backend (from `src-tauri/`)
+
 ```bash
-cargo check           # Type check Rust code
-cargo build           # Build Rust backend
-cargo clippy          # Lint Rust code
+cargo check
+cargo build
+cargo clippy
+cargo test
 ```
 
 ### Full App (from repo root)
+
 ```bash
-pnpm tauri dev        # Run full app in dev mode
-pnpm tauri build      # Build production app
+pnpm tauri dev
+pnpm tauri build
 ```
 
 ## Requirements
+
 - Rust 1.70+
 - Node.js 18+
 - pnpm
-- ffmpeg & ffprobe (in PATH or bundled in src-tauri/bin/)
+- `ffmpeg` and `ffprobe` in PATH or bundled in `src-tauri/bin/`
 
 ## Code Style
+
 - Frontend: TypeScript + SolidJS, minimal comments
-- Backend: Rust 2021 edition, use thiserror for errors
-- No inline comments unless complex logic requires explanation
+- Backend: Rust 2021 edition, explicit error handling
+- No inline comments unless logic is non-obvious
+
+## Optimization Guardrails
+
+- Preserve feature depth (do not reduce supported concurrent playback behavior to hide perf issues)
+- Prefer batching/backpressure and scheduling improvements over hard feature cuts
+- Keep scan and UI updates incremental for large libraries
+- Validate with real large-library workflows before closing perf tasks

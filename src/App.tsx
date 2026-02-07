@@ -23,6 +23,7 @@ function App() {
 
     let pendingUpdates: VideoItem[] = [];
     let flushTimeout: number | null = null;
+    let jobKickTimeout: number | null = null;
 
     const flushUpdates = () => {
       flushTimeout = null;
@@ -37,9 +38,18 @@ function App() {
       flushTimeout = window.setTimeout(flushUpdates, 120);
     };
 
+    const scheduleJobKick = () => {
+      if (jobKickTimeout !== null) return;
+      jobKickTimeout = window.setTimeout(() => {
+        jobKickTimeout = null;
+        invoke('process_pending_jobs').catch(console.error);
+      }, 400);
+    };
+
     const unlistenDiscovered = await listen<VideoItem[]>('library:discovered', (event) => {
       pendingUpdates.push(...event.payload);
       scheduleFlush();
+      scheduleJobKick();
     });
 
     const unlistenUpdated = await listen<VideoItem[]>('library:updated', (event) => {
@@ -65,6 +75,7 @@ function App() {
     const unlistenScanFinished = await listen('library:scan_finished', () => {
       setStore('scanProgress', null);
       setStore('scanning', false);
+      scheduleJobKick();
     });
 
     const unlistenWarnings = await listen<string>('library:warning', (event) => {
@@ -97,6 +108,8 @@ function App() {
 
     onCleanup(() => {
       window.clearTimeout(store.warningTimeoutId);
+      if (flushTimeout !== null) window.clearTimeout(flushTimeout);
+      if (jobKickTimeout !== null) window.clearTimeout(jobKickTimeout);
       unlistenDiscovered();
       unlistenUpdated();
       unlistenRemoved();

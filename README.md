@@ -1,104 +1,82 @@
 # Vidz
 
-A clean, performant local video viewer that can smoothly display and play 10,000+ short clips in a continuous, minimal grid.
+Local-first desktop viewer for large clip libraries (10k+), built for smooth scroll, fast incremental loading, and in-grid playback.
 
-## Tech Stack
+## Stack
 
-- **App Architecture:** Tauri 2.x (Windows-first desktop app)
-- **Frontend:** SolidJS + Vite
-- **Virtualization:** TanStack Virtual (grid virtualization for 10k+ videos)
-- **Database:** SQLite via rusqlite
-- **Media Processing:** ffprobe (metadata) + ffmpeg (thumbnails) - bundled
+- Tauri 2.x (Rust backend)
+- SolidJS + Vite (frontend)
+- TanStack Virtual (grid virtualization)
+- SQLite (`rusqlite`) for library cache
+- `ffprobe` (metadata) + `ffmpeg` (thumbnails)
 
-## Data Model
+## Key Behavior
 
-```typescript
-interface VideoItem {
-  id: string;           // SHA256 hash of canonical path (first 32 chars)
-  path: string;         // Full file path
-  folder: string;       // Parent directory
-  size_bytes: number;   // File size
-  mtime: number;        // Modified time (Unix timestamp)
-  duration_ms: number;  // Video duration in milliseconds
-  width: number;        // Video width
-  height: number;       // Video height
-  aspect_ratio: number; // width / height
-  favorite: boolean;    // User favorite flag
-  thumb_path: string;   // Path to cached thumbnail
-}
-```
+- Responsive virtualized grid with density control
+- Incremental scan surfacing (clips appear in batches during scan)
+- Progressive metadata/thumb fill while scan is active
+- Focused player mode pauses grid playback
+- Autoplay for visible clips, with hover playback when autoplay is off
+- Sorting: size, resolution, aspect, duration, folder, favorites
+- Filtering: folder and favorites
+- Recursive watched-folder auto-import via file watcher
 
-## Features
+## Performance Notes
 
-- **Grid Layout:** Responsive grid with adjustable density
-- **Playback on Hover:** Videos play in-grid when hovered (unless autoplay is off)
-- **Focused Player:** Click to open dedicated player view (pauses all other videos)
-- **Sorting:** File size, resolution, aspect ratio, duration, folder, favorites
-- **Filtering:** By folder, favorites only
-- **Auto-import:** Background file watcher for watched directories
+Recent optimizations:
 
-## Development
+- Batched DB upserts during scan (`upsert_videos_batch`)
+- Batched `library:discovered` emission during scan
+- Throttled background job kicks while scanning
+- Viewport-based autoplay gating with configurable concurrency cap
+- Thumbnail-first tile rendering + conditional video source attachment
+- CSS containment on grid/tile containers
 
-### Prerequisites
+## Prerequisites
 
 - Node.js 18+
 - pnpm
 - Rust 1.70+
-- ffmpeg & ffprobe (in PATH or bundled in `src-tauri/bin/`)
+- `ffmpeg` and `ffprobe` in PATH or bundled in `src-tauri/bin/`
 
-### Setup
+## Development
+
+From repo root:
 
 ```bash
-cd vidz
 pnpm install
-pnpm tauri dev
-```
-
-### Tooling
-
-```bash
-cd vidz
+pnpm dev
+pnpm exec tsc --noEmit
 pnpm lint
-pnpm format
-pnpm format:check
 pnpm test
 ```
 
+Backend checks:
+
 ```bash
-cd vidz/src-tauri
-cargo fmt
-cargo clippy
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-### Build
+Run full app:
 
 ```bash
-cd vidz
+pnpm tauri dev
+```
+
+Build release:
+
+```bash
 pnpm tauri build
 ```
 
-## Project Structure
+## Docs
 
-```
-.
-|-- src/                 # Frontend (SolidJS)
-|   |-- components/
-|   |   |-- VideoGrid.tsx   # Virtualized grid
-|   |   |-- VideoTile.tsx   # Individual video tile
-|   |   |-- FocusedPlayer.tsx
-|   |   `-- Toolbar.tsx     # Sort/filter controls
-|   |-- store.ts            # App state
-|   `-- types.ts            # TypeScript types
-|-- src-tauri/            # Backend (Rust)
-|   |-- src/
-|   |   |-- commands/       # Tauri commands
-|   |   |-- db/             # SQLite database
-|   |   |-- scanner/        # File scanning & media processing
-|   |   |-- models.rs       # Data models
-|   |   `-- lib.rs          # App entry
-|   `-- bin/                # Bundled ffmpeg/ffprobe
-|-- docs/
-|   |-- plan.md             # Product spec
-|   `-- audit-report.md
-`-- README.md               # Project overview (this file)
-```
+- `docs/ARCHITECTURE.md` - system architecture and event/data flow
+- `docs/OPERATIONS.md` - runbooks, troubleshooting, release checks
+- `docs/PERFORMANCE.md` - performance strategy, knobs, and next targets
+- `docs/audits/optimization-roadmap.md` - phased checklist for optimization work
+- `docs/audits/audit-report.md` - historical audit summary
+- `docs/audits/runtime-process-audit.md` - media process/caching audit
+- `docs/_legacy/` - previous plan/task snapshots

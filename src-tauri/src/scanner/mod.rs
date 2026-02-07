@@ -9,6 +9,8 @@ use crate::models::VideoItem;
 const VIDEO_EXTENSIONS: &[&str] = &[
     "mp4", "mkv", "webm", "avi", "mov", "wmv", "flv", "m4v", "mpg", "mpeg", "3gp",
 ];
+const SCAN_DB_BATCH_SIZE: usize = 128;
+const SCAN_EVENT_BATCH_SIZE: usize = 64;
 
 #[cfg(windows)]
 fn apply_no_window(command: &mut std::process::Command) {
@@ -53,9 +55,12 @@ pub fn scan_directory(
     root: &Path,
     should_cancel: impl Fn() -> bool,
     on_progress: impl Fn(usize, usize, &str),
+    on_discovered_batch: impl Fn(&[VideoItem]),
 ) -> Result<(Vec<VideoItem>, bool), String> {
     let mut videos = Vec::new();
     let mut entries: Vec<PathBuf> = Vec::new();
+    let mut pending_db = Vec::with_capacity(SCAN_DB_BATCH_SIZE);
+    let mut pending_events = Vec::with_capacity(SCAN_EVENT_BATCH_SIZE);
 
     for entry in WalkDir::new(root)
         .follow_links(true)
@@ -76,18 +81,49 @@ pub fn scan_directory(
             cancelled = true;
             break;
         }
-        on_progress(idx, total, &path.to_string_lossy());
+        on_progress(idx + 1, total, &path.to_string_lossy());
 
         if let Some(video) = create_video_item(path) {
-            if let Err(e) = db.upsert_video(&video) {
-                eprintln!("Failed to upsert video {}: {}", path.display(), e);
-            } else {
-                videos.push(video);
+            pending_db.push(video.clone());
+            pending_events.push(video.clone());
+            videos.push(video);
+
+            if pending_db.len() >= SCAN_DB_BATCH_SIZE {
+                flush_db_batch(db, &mut pending_db);
+            }
+            if pending_events.len() >= SCAN_EVENT_BATCH_SIZE {
+                on_discovered_batch(&pending_events);
+                pending_events.clear();
             }
         }
     }
 
+    flush_db_batch(db, &mut pending_db);
+    if !pending_events.is_empty() {
+        on_discovered_batch(&pending_events);
+    }
+
     Ok((videos, cancelled))
+}
+
+fn flush_db_batch(db: &Database, pending_db: &mut Vec<VideoItem>) {
+    if pending_db.is_empty() {
+        return;
+    }
+
+    if let Err(e) = db.upsert_videos_batch(pending_db) {
+        eprintln!("Failed to batch upsert videos: {}", e);
+        for video in pending_db.iter() {
+            if let Err(single_err) = db.upsert_video(video) {
+                eprintln!(
+                    "Failed to recover upsert for video {}: {}",
+                    video.path, single_err
+                );
+            }
+        }
+    }
+
+    pending_db.clear();
 }
 
 fn create_video_item(path: &Path) -> Option<VideoItem> {

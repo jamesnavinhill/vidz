@@ -53,3 +53,11 @@ select option {
   outline: 2px solid #2d5af7;
   outline-offset: -2px;
 }
+
+.video-grid-container {
+  contain: strict;
+}
+
+.video-tile {
+  contain: content;
+}

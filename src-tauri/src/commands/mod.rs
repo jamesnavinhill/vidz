@@ -65,6 +65,7 @@ pub async fn scan_directories(
             }
 
             let app_clone = app_handle.clone();
+            let app_discovered = app_handle.clone();
             let cancel_guard = Arc::clone(&cancel_state);
             let (videos, cancelled) = scanner::scan_directory(
                 &db,
@@ -79,6 +80,9 @@ pub async fn scan_directories(
                             current_file: Some(current.to_string()),
                         },
                     );
+                },
+                |batch| {
+                    let _ = app_discovered.emit("library:discovered", batch.to_vec());
                 },
             )?;
 
@@ -101,7 +105,6 @@ pub async fn scan_directories(
         state.job_queue.clear_running();
     }
     let _ = app.emit("library:scan_finished", ());
-    let _ = app.emit("library:discovered", &result);
 
     Ok(result)
 }

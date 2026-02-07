@@ -6,6 +6,20 @@ use std::sync::Arc;
 
 use crate::models::VideoItem;
 
+const UPSERT_VIDEO_SQL: &str = "INSERT INTO videos (id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path, last_scanned)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, strftime('%s', 'now'))
+             ON CONFLICT(id) DO UPDATE SET
+                path = excluded.path,
+                folder = excluded.folder,
+                size_bytes = excluded.size_bytes,
+                mtime = excluded.mtime,
+                duration_ms = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.duration_ms, duration_ms) END,
+                width = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.width, width) END,
+                height = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.height, height) END,
+                aspect_ratio = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.aspect_ratio, aspect_ratio) END,
+                thumb_path = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.thumb_path, thumb_path) END,
+                last_scanned = strftime('%s', 'now')";
+
 pub struct Database {
     conn: Arc<Mutex<Connection>>,
 }
@@ -130,19 +144,7 @@ impl Database {
     pub fn upsert_video(&self, video: &VideoItem) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute(
-            "INSERT INTO videos (id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path, last_scanned)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, strftime('%s', 'now'))
-             ON CONFLICT(id) DO UPDATE SET
-                path = excluded.path,
-                folder = excluded.folder,
-                size_bytes = excluded.size_bytes,
-                mtime = excluded.mtime,
-                duration_ms = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.duration_ms, duration_ms) END,
-                width = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.width, width) END,
-                height = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.height, height) END,
-                aspect_ratio = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.aspect_ratio, aspect_ratio) END,
-                thumb_path = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.thumb_path, thumb_path) END,
-                last_scanned = strftime('%s', 'now')",
+            UPSERT_VIDEO_SQL,
             params![
                 video.id,
                 video.path,
@@ -157,6 +159,37 @@ impl Database {
                 video.thumb_path,
             ],
         )?;
+        Ok(())
+    }
+
+    pub fn upsert_videos_batch(&self, videos: &[VideoItem]) -> Result<()> {
+        if videos.is_empty() {
+            return Ok(());
+        }
+
+        let mut conn = self.conn.lock();
+        let tx = conn.transaction()?;
+
+        for video in videos {
+            tx.execute(
+                UPSERT_VIDEO_SQL,
+                params![
+                    video.id,
+                    video.path,
+                    video.folder,
+                    video.size_bytes,
+                    video.mtime,
+                    video.duration_ms,
+                    video.width,
+                    video.height,
+                    video.aspect_ratio,
+                    video.favorite as i32,
+                    video.thumb_path,
+                ],
+            )?;
+        }
+
+        tx.commit()?;
         Ok(())
     }
 

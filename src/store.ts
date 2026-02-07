@@ -15,7 +15,6 @@ export interface AppStore {
   gridColumns: number;
   scanning: boolean;
   scanProgress: { total: number; processed: number } | null;
-  activePlayingIds: Set<string>;
   maxConcurrentVideos: number;
   lastWarning: string | null;
   warningTimeoutId: number;
@@ -37,7 +36,6 @@ const [store, setStore] = createStore<AppStore>({
   gridColumns: 1,
   scanning: false,
   scanProgress: null,
-  activePlayingIds: new Set(),
   maxConcurrentVideos: 16,
   lastWarning: null,
   warningTimeoutId: 0,
@@ -114,29 +112,6 @@ export function getSortedFilteredVideos(): VideoItem[] {
 export function getUniqueFolders(): string[] {
   const folders = new Set(store.videos.map((v) => v.folder));
   return Array.from(folders).sort();
-}
-
-export function canVideoPlay(id: string): boolean {
-  if (store.activePlayingIds.has(id)) {
-    return true;
-  }
-  return store.activePlayingIds.size < store.maxConcurrentVideos;
-}
-
-export function registerPlaying(id: string) {
-  setStore('activePlayingIds', (set) => {
-    const newSet = new Set(set);
-    newSet.add(id);
-    return newSet;
-  });
-}
-
-export function unregisterPlaying(id: string) {
-  setStore('activePlayingIds', (set) => {
-    const newSet = new Set(set);
-    newSet.delete(id);
-    return newSet;
-  });
 }
 
 export function setAutoplay(value: boolean) {
