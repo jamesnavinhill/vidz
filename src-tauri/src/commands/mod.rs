@@ -1,11 +1,12 @@
 use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::db::Database;
 use crate::jobs::JobQueue;
-use crate::models::{AppSettings, ScanProgress, VideoItem};
+use crate::models::{AppSettings, ScanProgress, UiActivityHints, VideoItem};
 use crate::scanner;
 use crate::watcher::FileWatcher;
 
@@ -46,9 +47,18 @@ pub async fn scan_directories(
     app: AppHandle,
     paths: Vec<String>,
 ) -> Result<Vec<VideoItem>, String> {
+    run_scan_inner(state.inner().clone(), app, paths, false).await
+}
+
+async fn run_scan_inner(
+    state: Arc<AppState>,
+    app: AppHandle,
+    paths: Vec<String>,
+    incremental: bool,
+) -> Result<Vec<VideoItem>, String> {
     let db = state.db.clone();
     let app_handle = app.clone();
-    let paths_clone = paths.clone();
+    let paths_clone = paths;
     let cancel_state = Arc::clone(&state.scan_cancel);
     {
         let mut cancel = cancel_state.lock();
@@ -57,6 +67,11 @@ pub async fn scan_directories(
 
     let result = tokio::task::spawn_blocking(move || {
         let mut all_videos = Vec::new();
+        let mut cursors = db.get_scan_cursors().unwrap_or_default();
+        let now_epoch = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
 
         for path in &paths_clone {
             let root = PathBuf::from(path);
@@ -64,15 +79,22 @@ pub async fn scan_directories(
                 continue;
             }
 
-            let app_clone = app_handle.clone();
+            let app_progress = app_handle.clone();
             let app_discovered = app_handle.clone();
+            let app_batch = app_handle.clone();
             let cancel_guard = Arc::clone(&cancel_state);
+            let cursor = if incremental {
+                cursors.get(path).copied()
+            } else {
+                None
+            };
             let (videos, cancelled) = scanner::scan_directory(
                 &db,
                 &root,
+                cursor,
                 || *cancel_guard.lock(),
                 |processed, total, current| {
-                    let _ = app_clone.emit(
+                    let _ = app_progress.emit(
                         "library:scan_progress",
                         ScanProgress {
                             total,
@@ -84,15 +106,22 @@ pub async fn scan_directories(
                 |batch| {
                     let _ = app_discovered.emit("library:discovered", batch.to_vec());
                 },
+                |telemetry| {
+                    let _ = app_batch.emit("library:scan_batch", telemetry);
+                },
             )?;
 
             if cancelled {
                 let mut cancel = cancel_guard.lock();
                 *cancel = true;
+            } else {
+                cursors.insert(path.clone(), now_epoch);
             }
 
             all_videos.extend(videos);
         }
+
+        let _ = db.save_scan_cursors(&cursors);
 
         Ok::<_, String>(all_videos)
     })
@@ -138,7 +167,7 @@ pub async fn add_watched_folder(
         watcher.watch(PathBuf::from(&path)).ok();
     }
 
-    let videos = scan_directories(state.clone(), app.clone(), vec![path]).await?;
+    let videos = run_scan_inner(state.inner().clone(), app.clone(), vec![path], false).await?;
 
     let job_queue = state.job_queue.clone();
     let app_clone = app.clone();
@@ -147,6 +176,19 @@ pub async fn add_watched_folder(
     });
 
     Ok(videos)
+}
+
+#[tauri::command]
+pub async fn scan_watched_folders_incremental(
+    state: State<'_, Arc<AppState>>,
+    app: AppHandle,
+) -> Result<Vec<VideoItem>, String> {
+    let folders = state.db.get_watched_folders().map_err(|e| e.to_string())?;
+    if folders.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    run_scan_inner(state.inner().clone(), app, folders, true).await
 }
 
 #[tauri::command]
@@ -206,6 +248,15 @@ pub async fn process_pending_jobs(
     tokio::spawn(async move {
         job_queue.process_all(app).await;
     });
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn update_ui_activity(
+    state: State<'_, Arc<AppState>>,
+    hints: UiActivityHints,
+) -> Result<(), String> {
+    state.job_queue.update_ui_hints(hints);
     Ok(())
 }
 

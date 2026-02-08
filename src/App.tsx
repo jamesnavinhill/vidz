@@ -102,7 +102,13 @@ function App() {
 
     await invoke('start_file_watcher');
 
-    if (videos.length > 0) {
+    if (folders.length > 0) {
+      setStore('scanning', true);
+      invoke('scan_watched_folders_incremental').catch((error) => {
+        console.error(error);
+        setStore('scanning', false);
+      });
+    } else if (videos.length > 0) {
       invoke('process_pending_jobs');
     }
 

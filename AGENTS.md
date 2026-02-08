@@ -13,6 +13,7 @@
 - `docs/OPERATIONS.md`
 - `docs/PERFORMANCE.md`
 - `docs/audits/optimization-roadmap.md`
+- `docs/audits/session-handoff.md`
 
 ## Commands
 

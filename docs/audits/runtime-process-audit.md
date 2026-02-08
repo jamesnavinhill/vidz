@@ -1,6 +1,6 @@
 # Vidz Runtime Process & Caching Audit
 
-**Date:** 2026-01-30
+**Date:** 2026-02-08
 
 ## Scope
 
@@ -42,11 +42,17 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
   - Metadata extraction uses a semaphore of **4** concurrent ffprobe jobs.
   - Thumbnail generation uses a semaphore of **2** concurrent ffmpeg jobs.
   - `process_all()` runs metadata first, then thumbnails, and prevents overlapping runs via `running` mutex.
+  - Job ordering now prioritizes viewport-near IDs from frontend UI hints.
+  - Queue backpressure now reacts to active scrolling (thumbnail batch/concurrency limits).
+  - Retry budget and categorized failure counters are emitted in `library:job_telemetry`.
 
 - **Directory scanning** (`scanner::scan_directory`):
-  - Walks files and upserts to DB one-by-one.
+  - Walks files and upserts to DB in transactional batches.
+  - Emits `library:discovered` in batches while scanning.
+  - Emits per-batch telemetry (`library:scan_batch`) with batch size + latency.
+  - Supports incremental cursor mode to skip unchanged files on startup scans.
   - Reports progress to UI.
-  - No chunked batching for DB writes, but does respect scan cancellation.
+  - Respects scan cancellation.
 
 - **Watcher** (`src-tauri/src/watcher/mod.rs`):
   - Debounces events by 500ms.
@@ -57,8 +63,8 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
 ### Queueing Gaps / Improvement Ideas
 
 - ✅ Implemented: watcher triggers job queue processing on create/modify.
-- Optional batch DB updates during scan to reduce fsync overhead for very large libraries.
-- Consider a unified job scheduler that accepts work from both initial scans and watcher events.
+- ✅ Implemented: scan batching + incremental scan cursor + batch telemetry.
+- Remaining optional work: smarter watcher saturation handling and adaptive debounce under burst copy/move load.
 
 ## Caching (Current)
 
@@ -69,11 +75,11 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
 - **Thumbnail cache:** JPEGs stored in `AppCacheDir/Vidz/thumbs/`.
   - Thumbs are removed when a video is deleted via watcher.
 
-- **Settings cache:** stored in `settings` table (`watched_folders`, `app_settings`).
+- **Settings cache:** stored in `settings` table (`watched_folders`, `app_settings`, `scan_cursors`).
 
 ### Cache Improvements
 
-- **Startup re-scan optimization:** Current behavior still iterates all files during scan. Consider tracking scan cursor or a folder hash to skip untouched directories.
+- ✅ **Startup re-scan optimization:** startup scan now uses stored folder cursors to skip unchanged ingest work.
 - ✅ **Thumbnail hygiene:** `Database::cleanup_orphaned_thumbnails()` runs on startup to remove stale thumbnails.
 - ✅ **Index tuning / WAL mode:** SQLite WAL + pragmas applied on database creation.
 - **Metadata cache validation:** still relies on `mtime` checks; optional future work to add more granular cache keys.
@@ -81,9 +87,10 @@ When the app is launched from the `.exe` (not from a terminal), each `Command::n
 ## Recommendation Summary
 
 1. ✅ **Hidden ffmpeg/ffprobe console windows** using Windows no-console flags on process spawn.
-2. **JobQueue semaphores** remain at 4 metadata / 2 thumbs.
-3. ✅ **Watcher events now bridge to JobQueue** for auto metadata/thumbnail processing.
-4. ✅ **Cache hygiene**: startup cleanup of stale thumbnails + WAL pragmas.
+2. ✅ **Scan ingest is batched with telemetry and incremental cursor support**.
+3. ✅ **JobQueue now prioritizes viewport-near work with UI-aware backpressure**.
+4. ✅ **Watcher events bridge to JobQueue** for auto metadata/thumbnail processing.
+5. ✅ **Cache hygiene**: startup cleanup of stale thumbnails + WAL pragmas.
 
 ## Relevant Code Locations
 

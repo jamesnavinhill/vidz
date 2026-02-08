@@ -8,6 +8,9 @@ interface Props {
   isActive: boolean;
   inViewport: boolean;
   allowAutoplay: boolean;
+  allowPrefetch: boolean;
+  allowWarmup: boolean;
+  allowVideoMount: boolean;
   autoplay: boolean;
   onSelect: () => void;
 }
@@ -26,9 +29,11 @@ export default function VideoTile(props: Props) {
   };
 
   const videoSrc = createMemo<string | undefined>(() => {
-    if (!props.isActive || !props.inViewport) return undefined;
+    if (!props.allowVideoMount) return undefined;
+    if (!props.isActive) return undefined;
     if (props.autoplay && props.allowAutoplay) return convertFileSrc(props.video.path);
     if (!props.autoplay && isHovering()) return convertFileSrc(props.video.path);
+    if (props.allowPrefetch || props.allowWarmup) return convertFileSrc(props.video.path);
     return undefined;
   });
 
@@ -51,6 +56,13 @@ export default function VideoTile(props: Props) {
       videoRef.currentTime = 0;
     }
   });
+
+  createEffect(() => {
+    if (!props.allowVideoMount && isPlaying()) {
+      setIsPlaying(false);
+    }
+  });
+
   const thumbSrc = createMemo(() =>
     props.video.thumb_path ? convertFileSrc(props.video.thumb_path) : '',
   );
@@ -91,25 +103,29 @@ export default function VideoTile(props: Props) {
         />
       </Show>
 
-      <video
-        ref={videoRef}
-        src={videoSrc()}
-        muted
-        loop
-        playsinline
-        preload={props.autoplay ? 'metadata' : 'none'}
-        poster={thumbSrc() || undefined}
-        style={{
-          width: '100%',
-          height: '100%',
-          'object-fit': 'cover',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          'background-color': '#1a1a1a',
-          opacity: isPlaying() ? 1 : 0,
-        }}
-      />
+      <Show when={props.allowVideoMount}>
+        <video
+          ref={videoRef}
+          src={videoSrc()}
+          muted
+          loop
+          playsinline
+          preload={
+            props.autoplay || props.allowPrefetch || props.allowWarmup ? 'metadata' : 'none'
+          }
+          poster={thumbSrc() || undefined}
+          style={{
+            width: '100%',
+            height: '100%',
+            'object-fit': 'cover',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            'background-color': '#1a1a1a',
+            opacity: isPlaying() ? 1 : 0,
+          }}
+        />
+      </Show>
 
       {props.video.favorite && (
         <div

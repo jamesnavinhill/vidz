@@ -1,10 +1,12 @@
+use std::collections::HashMap;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
 
 use crate::db::Database;
-use crate::models::VideoItem;
+use crate::models::{ScanBatchTelemetry, VideoItem};
 
 const VIDEO_EXTENSIONS: &[&str] = &[
     "mp4", "mkv", "webm", "avi", "mov", "wmv", "flv", "m4v", "mpg", "mpeg", "3gp",
@@ -53,14 +55,24 @@ pub fn is_video_file(path: &Path) -> bool {
 pub fn scan_directory(
     db: &Database,
     root: &Path,
+    incremental_cursor: Option<i64>,
     should_cancel: impl Fn() -> bool,
     on_progress: impl Fn(usize, usize, &str),
     on_discovered_batch: impl Fn(&[VideoItem]),
+    on_batch_telemetry: impl Fn(ScanBatchTelemetry),
 ) -> Result<(Vec<VideoItem>, bool), String> {
     let mut videos = Vec::new();
     let mut entries: Vec<PathBuf> = Vec::new();
     let mut pending_db = Vec::with_capacity(SCAN_DB_BATCH_SIZE);
     let mut pending_events = Vec::with_capacity(SCAN_EVENT_BATCH_SIZE);
+    let mut batch_index = 0usize;
+    let root_folder = root.to_string_lossy().to_string();
+    let existing_mtimes: HashMap<String, i64> = if incremental_cursor.is_some() {
+        db.get_video_mtimes_by_folder_prefix(&root_folder)
+            .unwrap_or_default()
+    } else {
+        HashMap::new()
+    };
 
     for entry in WalkDir::new(root)
         .follow_links(true)
@@ -84,26 +96,81 @@ pub fn scan_directory(
         on_progress(idx + 1, total, &path.to_string_lossy());
 
         if let Some(video) = create_video_item(path) {
+            if let Some(cursor) = incremental_cursor {
+                if video.mtime <= cursor {
+                    if let Some(existing_mtime) = existing_mtimes.get(&video.path) {
+                        if *existing_mtime == video.mtime {
+                            continue;
+                        }
+                    }
+                }
+            }
+
             pending_db.push(video.clone());
             pending_events.push(video.clone());
             videos.push(video);
 
-            if pending_db.len() >= SCAN_DB_BATCH_SIZE {
-                flush_db_batch(db, &mut pending_db);
-            }
-            if pending_events.len() >= SCAN_EVENT_BATCH_SIZE {
-                on_discovered_batch(&pending_events);
-                pending_events.clear();
+            if pending_db.len() >= SCAN_DB_BATCH_SIZE || pending_events.len() >= SCAN_EVENT_BATCH_SIZE {
+                flush_scan_batch(
+                    db,
+                    &root_folder,
+                    &mut pending_db,
+                    &mut pending_events,
+                    &mut batch_index,
+                    &on_discovered_batch,
+                    &on_batch_telemetry,
+                );
             }
         }
     }
 
-    flush_db_batch(db, &mut pending_db);
-    if !pending_events.is_empty() {
-        on_discovered_batch(&pending_events);
-    }
+    flush_scan_batch(
+        db,
+        &root_folder,
+        &mut pending_db,
+        &mut pending_events,
+        &mut batch_index,
+        &on_discovered_batch,
+        &on_batch_telemetry,
+    );
 
     Ok((videos, cancelled))
+}
+
+fn flush_scan_batch(
+    db: &Database,
+    root_folder: &str,
+    pending_db: &mut Vec<VideoItem>,
+    pending_events: &mut Vec<VideoItem>,
+    batch_index: &mut usize,
+    on_discovered_batch: &impl Fn(&[VideoItem]),
+    on_batch_telemetry: &impl Fn(ScanBatchTelemetry),
+) {
+    if pending_db.is_empty() && pending_events.is_empty() {
+        return;
+    }
+
+    let batch_size = pending_events.len();
+    let db_start = Instant::now();
+    flush_db_batch(db, pending_db);
+    let db_write_ms = db_start.elapsed().as_millis();
+
+    let mut emit_ms = 0u128;
+    if !pending_events.is_empty() {
+        let emit_start = Instant::now();
+        on_discovered_batch(pending_events);
+        emit_ms = emit_start.elapsed().as_millis();
+        pending_events.clear();
+    }
+
+    *batch_index += 1;
+    on_batch_telemetry(ScanBatchTelemetry {
+        folder: root_folder.to_string(),
+        batch_index: *batch_index,
+        batch_size,
+        db_write_ms,
+        emit_ms,
+    });
 }
 
 fn flush_db_batch(db: &Database, pending_db: &mut Vec<VideoItem>) {
@@ -150,12 +217,16 @@ fn create_video_item(path: &Path) -> Option<VideoItem> {
         width: None,
         height: None,
         aspect_ratio: None,
+        codec_name: None,
         favorite: false,
         thumb_path: None,
     })
 }
 
-pub fn extract_metadata(video_path: &str, ffprobe_path: &Path) -> Option<(i64, i32, i32)> {
+pub fn extract_metadata(
+    video_path: &str,
+    ffprobe_path: &Path,
+) -> Option<(i64, i32, i32, Option<String>)> {
     use std::process::Command;
 
     let mut command = Command::new(ffprobe_path);
@@ -189,14 +260,19 @@ pub fn extract_metadata(video_path: &str, ffprobe_path: &Path) -> Option<(i64, i
 
     let width = video_stream["width"].as_i64()? as i32;
     let height = video_stream["height"].as_i64()? as i32;
+    let codec_name = video_stream["codec_name"]
+        .as_str()
+        .map(|codec| codec.to_lowercase());
 
-    Some((duration_ms, width, height))
+    Some((duration_ms, width, height, codec_name))
 }
 
 pub fn generate_thumbnail(
     video_path: &str,
     thumb_path: &Path,
     ffmpeg_path: &Path,
+    target_width: i32,
+    jpeg_quality: i32,
 ) -> Result<(), String> {
     use std::process::Command;
 
@@ -206,6 +282,8 @@ pub fn generate_thumbnail(
 
     let mut command = Command::new(ffmpeg_path);
     apply_no_window(&mut command);
+    let scale = format!("scale={target_width}:-1");
+    let quality = jpeg_quality.clamp(2, 10).to_string();
     let output = command
         .args([
             "-y",
@@ -214,9 +292,9 @@ pub fn generate_thumbnail(
             "-vframes",
             "1",
             "-q:v",
-            "2",
+            &quality,
             "-vf",
-            "scale=320:-1",
+            &scale,
             &thumb_path.to_string_lossy(),
         ])
         .output()

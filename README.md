@@ -14,6 +14,7 @@ Local-first desktop viewer for large clip libraries (10k+), built for smooth scr
 
 - Responsive virtualized grid with density control
 - Incremental scan surfacing (clips appear in batches during scan)
+- Incremental startup scan (cursor-based delta ingest for watched folders)
 - Progressive metadata/thumb fill while scan is active
 - Focused player mode pauses grid playback
 - Autoplay for visible clips, with hover playback when autoplay is off
@@ -27,8 +28,13 @@ Recent optimizations:
 
 - Batched DB upserts during scan (`upsert_videos_batch`)
 - Batched `library:discovered` emission during scan
+- Batch telemetry events during scan (`library:scan_batch`)
 - Throttled background job kicks while scanning
+- Viewport-priority media jobs + UI-aware backpressure in job queue
+- Dynamic thumbnail sizing/quality from estimated tile resolution
+- Retry budget and categorized media failure telemetry (`library:job_telemetry`)
 - Viewport-based autoplay gating with configurable concurrency cap
+- Adaptive overscan + near-future prefetch window during fast scrolling
 - Thumbnail-first tile rendering + conditional video source attachment
 - CSS containment on grid/tile containers
 

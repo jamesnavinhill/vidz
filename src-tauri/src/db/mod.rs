@@ -1,13 +1,14 @@
 use directories::ProjectDirs;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, Result};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::models::VideoItem;
 
-const UPSERT_VIDEO_SQL: &str = "INSERT INTO videos (id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path, last_scanned)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, strftime('%s', 'now'))
+const UPSERT_VIDEO_SQL: &str = "INSERT INTO videos (id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, codec_name, favorite, thumb_path, last_scanned)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, strftime('%s', 'now'))
              ON CONFLICT(id) DO UPDATE SET
                 path = excluded.path,
                 folder = excluded.folder,
@@ -17,6 +18,7 @@ const UPSERT_VIDEO_SQL: &str = "INSERT INTO videos (id, path, folder, size_bytes
                 width = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.width, width) END,
                 height = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.height, height) END,
                 aspect_ratio = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.aspect_ratio, aspect_ratio) END,
+                codec_name = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.codec_name, codec_name) END,
                 thumb_path = CASE WHEN excluded.mtime != mtime THEN NULL ELSE COALESCE(excluded.thumb_path, thumb_path) END,
                 last_scanned = strftime('%s', 'now')";
 
@@ -37,6 +39,7 @@ impl Database {
         };
         db.apply_pragmas()?;
         db.init_schema()?;
+        db.migrate_schema()?;
         Ok(db)
     }
 
@@ -48,6 +51,7 @@ impl Database {
         };
         db.apply_pragmas()?;
         db.init_schema()?;
+        db.migrate_schema()?;
         Ok(db)
     }
 
@@ -122,6 +126,7 @@ impl Database {
                 width INTEGER,
                 height INTEGER,
                 aspect_ratio REAL,
+                codec_name TEXT,
                 favorite INTEGER NOT NULL DEFAULT 0,
                 thumb_path TEXT,
                 last_scanned INTEGER NOT NULL DEFAULT 0
@@ -155,10 +160,43 @@ impl Database {
                 video.width,
                 video.height,
                 video.aspect_ratio,
+                video.codec_name,
                 video.favorite as i32,
                 video.thumb_path,
             ],
         )?;
+        Ok(())
+    }
+
+    fn migrate_schema(&self) -> Result<()> {
+        self.ensure_column_exists("videos", "codec_name", "TEXT")
+    }
+
+    fn ensure_column_exists(
+        &self,
+        table: &str,
+        column: &str,
+        column_def: &str,
+    ) -> Result<()> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({})", table))?;
+        let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+        let mut exists = false;
+        for name in columns {
+            if name? == column {
+                exists = true;
+                break;
+            }
+        }
+        drop(stmt);
+
+        if !exists {
+            conn.execute(
+                &format!("ALTER TABLE {} ADD COLUMN {} {}", table, column, column_def),
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -183,6 +221,7 @@ impl Database {
                     video.width,
                     video.height,
                     video.aspect_ratio,
+                    video.codec_name,
                     video.favorite as i32,
                     video.thumb_path,
                 ],
@@ -196,7 +235,7 @@ impl Database {
     pub fn get_all_videos(&self) -> Result<Vec<VideoItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
+            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, codec_name, favorite, thumb_path
              FROM videos ORDER BY path"
         )?;
 
@@ -212,8 +251,9 @@ impl Database {
                     width: row.get(6)?,
                     height: row.get(7)?,
                     aspect_ratio: row.get(8)?,
-                    favorite: row.get::<_, i32>(9)? != 0,
-                    thumb_path: row.get(10)?,
+                    codec_name: row.get(9)?,
+                    favorite: row.get::<_, i32>(10)? != 0,
+                    thumb_path: row.get(11)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -236,6 +276,7 @@ impl Database {
         duration_ms: i64,
         width: i32,
         height: i32,
+        codec_name: Option<&str>,
     ) -> Result<()> {
         let conn = self.conn.lock();
         let aspect_ratio = if height > 0 {
@@ -244,8 +285,8 @@ impl Database {
             1.0
         };
         conn.execute(
-            "UPDATE videos SET duration_ms = ?1, width = ?2, height = ?3, aspect_ratio = ?4 WHERE id = ?5",
-            params![duration_ms, width, height, aspect_ratio, id],
+            "UPDATE videos SET duration_ms = ?1, width = ?2, height = ?3, aspect_ratio = ?4, codec_name = ?5 WHERE id = ?6",
+            params![duration_ms, width, height, aspect_ratio, codec_name, id],
         )?;
         Ok(())
     }
@@ -262,7 +303,7 @@ impl Database {
     pub fn get_video_by_id(&self, id: &str) -> Result<Option<VideoItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
+            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, codec_name, favorite, thumb_path
              FROM videos WHERE id = ?1"
         )?;
 
@@ -278,8 +319,9 @@ impl Database {
                 width: row.get(6)?,
                 height: row.get(7)?,
                 aspect_ratio: row.get(8)?,
-                favorite: row.get::<_, i32>(9)? != 0,
-                thumb_path: row.get(10)?,
+                codec_name: row.get(9)?,
+                favorite: row.get::<_, i32>(10)? != 0,
+                thumb_path: row.get(11)?,
             }))
         } else {
             Ok(None)
@@ -289,7 +331,7 @@ impl Database {
     pub fn get_videos_needing_metadata(&self) -> Result<Vec<VideoItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
+            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, codec_name, favorite, thumb_path
              FROM videos WHERE duration_ms IS NULL OR width IS NULL"
         )?;
 
@@ -305,8 +347,9 @@ impl Database {
                     width: row.get(6)?,
                     height: row.get(7)?,
                     aspect_ratio: row.get(8)?,
-                    favorite: row.get::<_, i32>(9)? != 0,
-                    thumb_path: row.get(10)?,
+                    codec_name: row.get(9)?,
+                    favorite: row.get::<_, i32>(10)? != 0,
+                    thumb_path: row.get(11)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -317,7 +360,7 @@ impl Database {
     pub fn get_videos_needing_thumbs(&self) -> Result<Vec<VideoItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
+            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, codec_name, favorite, thumb_path
              FROM videos WHERE thumb_path IS NULL"
         )?;
 
@@ -333,13 +376,34 @@ impl Database {
                     width: row.get(6)?,
                     height: row.get(7)?,
                     aspect_ratio: row.get(8)?,
-                    favorite: row.get::<_, i32>(9)? != 0,
-                    thumb_path: row.get(10)?,
+                    codec_name: row.get(9)?,
+                    favorite: row.get::<_, i32>(10)? != 0,
+                    thumb_path: row.get(11)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
 
         Ok(videos)
+    }
+
+    pub fn get_video_mtimes_by_folder_prefix(&self, folder: &str) -> Result<HashMap<String, i64>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare(
+            "SELECT path, mtime FROM videos WHERE folder = ?1 OR folder LIKE ?2",
+        )?;
+
+        let like_pattern = format!("{}%", folder.trim_end_matches(['/', '\\']));
+        let rows = stmt.query_map(params![folder, like_pattern], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?;
+
+        let mut map = HashMap::new();
+        for row in rows {
+            let (path, mtime) = row?;
+            map.insert(path, mtime);
+        }
+
+        Ok(map)
     }
 
     pub fn save_watched_folders(&self, folders: &[String]) -> Result<()> {
@@ -366,6 +430,35 @@ impl Database {
         }
     }
 
+    pub fn get_scan_cursors(&self) -> Result<HashMap<String, i64>> {
+        let conn = self.conn.lock();
+        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'scan_cursors'")?;
+        let mut rows = stmt.query([])?;
+
+        if let Some(row) = rows.next()? {
+            let json: String = row.get(0)?;
+            let parsed: crate::models::ScanCursors = serde_json::from_str(&json).unwrap_or_default();
+            Ok(parsed.folders)
+        } else {
+            Ok(HashMap::new())
+        }
+    }
+
+    pub fn save_scan_cursors(&self, cursors: &HashMap<String, i64>) -> Result<()> {
+        let conn = self.conn.lock();
+        let payload = crate::models::ScanCursors {
+            folders: cursors.clone(),
+        };
+        let json = serde_json::to_string(&payload).unwrap_or_default();
+
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES ('scan_cursors', ?1)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![json],
+        )?;
+        Ok(())
+    }
+
     pub fn delete_video(&self, id: &str) -> Result<()> {
         let conn = self.conn.lock();
         conn.execute("DELETE FROM videos WHERE id = ?1", params![id])?;
@@ -375,7 +468,7 @@ impl Database {
     pub fn get_videos_by_folder_prefix(&self, folder: &str) -> Result<Vec<VideoItem>> {
         let conn = self.conn.lock();
         let mut stmt = conn.prepare(
-            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, favorite, thumb_path
+            "SELECT id, path, folder, size_bytes, mtime, duration_ms, width, height, aspect_ratio, codec_name, favorite, thumb_path
              FROM videos WHERE folder = ?1 OR folder LIKE ?2"
         )?;
 
@@ -392,8 +485,9 @@ impl Database {
                     width: row.get(6)?,
                     height: row.get(7)?,
                     aspect_ratio: row.get(8)?,
-                    favorite: row.get::<_, i32>(9)? != 0,
-                    thumb_path: row.get(10)?,
+                    codec_name: row.get(9)?,
+                    favorite: row.get::<_, i32>(10)? != 0,
+                    thumb_path: row.get(11)?,
                 })
             })?
             .collect::<Result<Vec<_>>>()?;
@@ -459,6 +553,7 @@ mod tests {
             width: Some(320),
             height: Some(200),
             aspect_ratio: Some(1.6),
+            codec_name: Some("h264".to_string()),
             favorite: false,
             thumb_path: Some("thumbs/one.jpg".to_string()),
         }
@@ -474,6 +569,7 @@ mod tests {
         video.width = None;
         video.height = None;
         video.aspect_ratio = None;
+        video.codec_name = None;
         video.thumb_path = None;
         db.upsert_video(&video).expect("upsert 2");
 
@@ -481,6 +577,7 @@ mod tests {
         assert_eq!(stored.duration_ms, Some(1000));
         assert_eq!(stored.width, Some(320));
         assert_eq!(stored.height, Some(200));
+        assert_eq!(stored.codec_name.as_deref(), Some("h264"));
         assert_eq!(stored.thumb_path.as_deref(), Some("thumbs/one.jpg"));
     }
 
@@ -495,6 +592,7 @@ mod tests {
         updated.width = None;
         updated.height = None;
         updated.aspect_ratio = None;
+        updated.codec_name = None;
         updated.thumb_path = None;
         db.upsert_video(&updated).expect("upsert 2");
 
@@ -502,6 +600,7 @@ mod tests {
         assert_eq!(stored.duration_ms, None);
         assert_eq!(stored.width, None);
         assert_eq!(stored.height, None);
+        assert_eq!(stored.codec_name, None);
         assert_eq!(stored.thumb_path, None);
     }
 }
