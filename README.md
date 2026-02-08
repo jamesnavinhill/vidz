@@ -1,4 +1,4 @@
-# Vidz
+# vidz
 
 Local-first desktop viewer for large clip libraries (10k+), built for smooth scroll, fast incremental loading, and in-grid playback.
 

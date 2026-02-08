@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Vidz-Opus",
+  "productName": "vidz",
   "version": "0.1.0",
   "identifier": "com.vidz.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Vidz",
+        "title": "vidz",
         "width": 1280,
         "height": 800,
         "minWidth": 800,
@@ -30,9 +30,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "publisher": "Vidz",
+    "publisher": "vidz",
     "shortDescription": "Local video viewer for large clip libraries",
-    "longDescription": "Vidz is a Windows-first local video viewer for browsing, sorting, and playing large clip libraries with fast scanning and thumbnail caching.",
+    "longDescription": "vidz is a Windows-first local video viewer for browsing, sorting, and playing large clip libraries with fast scanning and thumbnail caching.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

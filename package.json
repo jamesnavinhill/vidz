@@ -1,5 +1,5 @@
 {
-  "name": "vidz-opus",
+  "name": "vidz",
   "version": "0.1.0",
   "description": "Local video viewer for 10k+ clips",
   "type": "module",

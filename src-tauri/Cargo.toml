@@ -1,5 +1,5 @@
 [package]
-name = "vidz-opus"
+name = "vidz"
 version = "0.1.0"
 description = "Local video viewer for 10k+ clips"
 authors = ["you"]
@@ -9,7 +9,7 @@ edition = "2021"
 opt-level = 1
 
 [lib]
-name = "vidz_opus_lib"
+name = "vidz_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

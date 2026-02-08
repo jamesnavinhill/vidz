@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    vidz_opus_lib::run()
+    vidz_lib::run()
 }
