@@ -89,7 +89,6 @@ impl FileWatcher {
         tokio::spawn(async move {
             let mut pending: HashMap<PathBuf, PendingPathEvent> = HashMap::new();
             let mut recent_events: VecDeque<Instant> = VecDeque::new();
-            let mut debounce = Duration::from_millis(BASE_DEBOUNCE_MS);
             let mut flush_tick = tokio::time::interval(Duration::from_millis(FLUSH_INTERVAL_MS));
             flush_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
             let mut telemetry_tick =
@@ -109,7 +108,7 @@ impl FileWatcher {
 
                         let now = Instant::now();
                         track_burst(&mut recent_events, now);
-                        debounce = adaptive_debounce(&recent_events, pending.len());
+                        let debounce = adaptive_debounce(&recent_events, pending.len());
 
                         {
                             let mut state = counters_clone.lock();
